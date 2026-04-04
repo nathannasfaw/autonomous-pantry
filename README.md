@@ -1,4 +1,4 @@
-# Autonomous Pantry — Method B: Approval-Based Payment Flow
+# Autonomous Pantry Method B: Approval-Based Payment Flow
 
 An agentic kitchen inventory and grocery purchasing system that demonstrates
 **approval-gated checkout**: the agent reasons and proposes, the user decides,
