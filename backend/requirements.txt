@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+anthropic
+torch
+pydantic
+python-dotenv

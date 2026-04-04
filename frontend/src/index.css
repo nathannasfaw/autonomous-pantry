@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-sidebar: #ffffff;
+  --bg-page: #f7f7f7;
+  --sidebar-border: #ebebeb;
+
+  --user-bubble-bg: #18181b;
+  --agent-bubble-bg: #ffffff;
+  --agent-bubble-border: #e4e4e7;
+
+  --card-recipe-header: linear-gradient(135deg, #1c1c1e 0%, #3a3a3c 100%);
+  --card-cart-header: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+  --card-success-header: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+  --shadow-card: 0 1px 8px rgba(0, 0, 0, 0.08);
+  --shadow-input: 0 2px 20px rgba(0, 0, 0, 0.07);
+
+  /* kept for send button / place order button */
+  --gradient-primary: linear-gradient(135deg, #18181b 0%, #3f3f46 100%);
+  --gradient-recipe: linear-gradient(135deg, #1c1c1e 0%, #3a3a3c 100%);
+  --gradient-cart: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+  --gradient-success: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+
+  /* legacy aliases kept so no component breaks */
+  --bubble-agent-bg: var(--agent-bubble-bg);
+  --bubble-agent-border: var(--agent-bubble-border);
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg-page);
+  color: #18181b;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 2px; }
+
+/* Animations */
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+  30%           { transform: translateY(-7px); opacity: 1; }
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes successPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(6, 78, 59, 0.35); }
+  70%  { box-shadow: 0 0 0 14px rgba(6, 78, 59, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(6, 78, 59, 0); }
+}
+
+@keyframes buttonPop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(0.93); }
+  100% { transform: scale(1); }
+}
+
+@keyframes avatarPing {
+  0%   { box-shadow: 0 0 0 0 rgba(24, 24, 27, 0.2); }
+  70%  { box-shadow: 0 0 0 10px rgba(24, 24, 27, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(24, 24, 27, 0); }
+}
+
+.bubble-agent { animation: slideInLeft 0.28s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.bubble-user  { animation: slideInRight 0.28s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.card-entrance { animation: fadeSlideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.success-pulse { animation: successPulse 1.5s ease-out; }
+.avatar-ping   { animation: avatarPing 0.6s ease-out; }
+.button-pop    { animation: buttonPop 0.18s ease-out; }
