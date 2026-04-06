@@ -8,11 +8,11 @@ const CartIcon = ({ size = 16, className = '' }) => (
 
 export default function CartCard({ cart, onBuy }) {
   if (!cart || cart.length === 0) return null
-  const total = cart.reduce((sum, item) => sum + (item.estimated_price || 0) * (item.quantity || 1), 0)
+  const total = cart.reduce((sum, item) => sum + (item.estimated_price || 0), 0)
 
   return (
-    <div className="card-entrance rounded-2xl overflow-hidden border border-gray-100 w-full max-w-sm"
-         style={{ boxShadow: 'var(--shadow-card)' }}>
+    <div className="card-entrance rounded-2xl overflow-hidden w-full"
+         style={{ boxShadow: 'var(--shadow-card)', border: '1px solid #3F4147' }}>
       {/* Gradient header */}
       <div className="px-4 py-3 flex items-center gap-2" style={{ background: 'var(--card-cart-header)' }}>
         <CartIcon size={15} className="text-white opacity-90" />
@@ -23,30 +23,31 @@ export default function CartCard({ cart, onBuy }) {
       </div>
 
       {/* Items */}
-      <div className="bg-white px-4 py-2">
+      <div className="px-4 py-2" style={{ background: 'var(--bg-card)' }}>
         {cart.map((item, i) => (
-          <div key={i} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
+          <div key={i} className="flex items-center justify-between py-2.5 last:border-0" style={{ borderBottom: '1px solid #3F4147' }}>
             <div>
-              <span className="text-sm font-medium text-gray-800">{item.item}</span>
-              <span className="text-xs text-gray-400 ml-2">{item.quantity} {item.unit}</span>
+              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{item.item}</span>
+              <span className="text-xs ml-2" style={{ color: 'var(--text-muted)' }}>{item.quantity} {item.unit}</span>
             </div>
-            <span className="text-xs font-semibold bg-green-50 text-green-700 px-2.5 py-1 rounded-full">
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: '#1a3a2a', color: '#4ade80' }}>
               ${(item.estimated_price || 0).toFixed(2)}
             </span>
           </div>
         ))}
 
         {/* Total */}
-        <div className="flex items-center justify-between mt-2 pt-3 border-t-2 border-gray-100">
-          <span className="text-sm font-semibold text-gray-700">Total</span>
-          <span className="text-base font-bold text-gray-900">${total.toFixed(2)}</span>
+        <div className="flex items-center justify-between mt-2 pt-3" style={{ borderTop: '2px solid #4F5159' }}>
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Total</span>
+          <span className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>${total.toFixed(2)}</span>
         </div>
 
         {/* Buy button */}
         {onBuy && (
           <button
             onClick={onBuy}
-            className="mt-3 mb-1 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:bg-zinc-700 active:scale-[0.98] bg-zinc-900"
+            className="mt-3 mb-1 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{ background: 'linear-gradient(135deg, #0061A0, #0D5E9D)' }}
           >
             <CartIcon size={14} />
             Place Order

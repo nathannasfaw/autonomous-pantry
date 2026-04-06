@@ -40,11 +40,15 @@ export default function InputBar({ onSend, isLoading }) {
 
   return (
     <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 pt-3"
-      style={{ background: 'linear-gradient(to top, var(--bg-page) 80%, transparent)' }}>
-      <div className="max-w-2xl mx-auto">
+      style={{ background: 'linear-gradient(to top, #313338 80%, transparent)' }}>
+      <div className="max-w-4xl mx-auto">
         <div
-          className="rounded-2xl border border-zinc-200 bg-white overflow-hidden"
-          style={{ boxShadow: 'var(--shadow-input)' }}
+          className="rounded-2xl overflow-hidden"
+          style={{
+            background: '#3F4147',
+            border: '1px solid #4F5159',
+            boxShadow: 'var(--shadow-input)',
+          }}
         >
           {/* Text area */}
           <textarea
@@ -55,14 +59,17 @@ export default function InputBar({ onSend, isLoading }) {
             onKeyDown={handleKeyDown}
             placeholder="How can I help you today?"
             disabled={isLoading}
-            className="w-full resize-none outline-none text-sm text-zinc-800 placeholder-zinc-400 bg-transparent px-4 pt-3.5 pb-2 disabled:opacity-50"
-            style={{ maxHeight: 160 }}
+            className="w-full resize-none outline-none text-sm bg-transparent px-4 pt-3.5 pb-2 disabled:opacity-50"
+            style={{ maxHeight: 160, color: 'var(--text-primary)', caretColor: '#0061A0' }}
           />
 
           {/* Bottom toolbar */}
           <div className="flex items-center justify-between px-3 pb-3">
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-600 font-medium select-none">
+              <span
+                className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium select-none"
+                style={{ background: '#2B2D31', color: 'var(--text-secondary)' }}
+              >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
                 Haiku 4.5
               </span>
@@ -71,16 +78,21 @@ export default function InputBar({ onSend, isLoading }) {
               onClick={submit}
               disabled={!canSend}
               className={`w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0 transition-all
-                ${canSend ? 'bg-zinc-900 hover:bg-zinc-700' : 'bg-zinc-200 cursor-not-allowed'}
                 ${popping ? 'button-pop' : ''}
               `}
+              style={{
+                background: canSend
+                  ? 'linear-gradient(135deg, #0061A0, #0D5E9D)'
+                  : '#4F5159',
+                cursor: canSend ? 'pointer' : 'not-allowed',
+              }}
             >
               <SendIcon />
             </button>
           </div>
         </div>
-        <p className="text-center text-xs text-zinc-400 mt-2">
-          Press <kbd className="px-1 py-0.5 rounded text-zinc-500 bg-zinc-100 font-mono text-[10px]">Enter</kbd> to send · <kbd className="px-1 py-0.5 rounded text-zinc-500 bg-zinc-100 font-mono text-[10px]">Shift+Enter</kbd> for new line
+        <p className="text-center text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+          Press <kbd className="px-1 py-0.5 rounded font-mono text-[10px]" style={{ background: '#3F4147', color: 'var(--text-secondary)' }}>Enter</kbd> to send · <kbd className="px-1 py-0.5 rounded font-mono text-[10px]" style={{ background: '#3F4147', color: 'var(--text-secondary)' }}>Shift+Enter</kbd> for new line
         </p>
       </div>
     </div>

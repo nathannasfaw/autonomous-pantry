@@ -24,6 +24,7 @@ from app.routes.chat import router
 app.include_router(router, prefix="/chat")
 
 
+
 # On startup, initialize NN (train or load weights)
 from app.services.nn_service import initialize_nn
 

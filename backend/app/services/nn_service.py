@@ -22,94 +22,95 @@ HIDDEN1 = 64
 HIDDEN2 = 32
 OUTPUT_SIZE = 1  # single score per item
 
-# Price lookup for common grocery items
-PRICE_LOOKUP = {
-    "salmon": 18.00,
-    "tuna": 12.00,
-    "shrimp": 14.00,
-    "chicken breast": 8.00,
-    "chicken thigh": 6.00,
-    "ground beef": 7.00,
-    "steak": 20.00,
-    "pork chops": 9.00,
-    "tofu": 4.00,
-    "tempeh": 5.00,
-    "sushi rice": 6.00,
-    "rice": 4.00,
-    "pasta": 3.00,
-    "noodles": 3.00,
-    "bread": 4.00,
-    "flour": 3.00,
-    "soy sauce": 4.00,
-    "sesame oil": 6.00,
-    "olive oil": 9.00,
-    "vegetable oil": 5.00,
-    "butter": 5.00,
-    "cream cheese": 4.00,
-    "mozzarella": 6.00,
-    "parmesan": 7.00,
-    "cheddar": 5.00,
-    "nori": 5.00,
-    "seaweed": 4.00,
-    "avocado": 2.00,
-    "cucumber": 2.00,
-    "tomato": 2.00,
-    "onion": 2.00,
-    "garlic": 3.00,
-    "ginger": 3.00,
-    "lemon": 1.00,
-    "lime": 1.00,
-    "eggs": 5.00,
-    "milk": 4.00,
-    "heavy cream": 5.00,
-    "yogurt": 5.00,
-    "wasabi": 4.00,
-    "pickled ginger": 4.00,
-    "rice vinegar": 4.00,
-    "mirin": 6.00,
-    "sake": 8.00,
-    "dashi": 5.00,
-    "miso paste": 6.00,
-    "panko breadcrumbs": 4.00,
-    "cornstarch": 3.00,
-    "sugar": 3.00,
-    "salt": 2.00,
-    "black pepper": 3.00,
-    "red pepper flakes": 3.00,
-    "basil": 3.00,
-    "oregano": 3.00,
-    "thyme": 3.00,
-    "rosemary": 3.00,
-    "cilantro": 2.00,
-    "green onion": 2.00,
-    "scallion": 2.00,
-    "mushrooms": 4.00,
-    "spinach": 3.00,
-    "broccoli": 3.00,
-    "bell pepper": 2.00,
-    "jalapeño": 1.00,
-    "serrano pepper": 1.00,
-    "black beans": 3.00,
-    "kidney beans": 3.00,
-    "chickpeas": 3.00,
-    "lentils": 4.00,
-    "vegetable broth": 4.00,
-    "chicken broth": 4.00,
-    "coconut milk": 3.00,
-    "tomato sauce": 3.00,
-    "tomato paste": 2.00,
-    "canned tomatoes": 3.00,
-    "pizza dough": 5.00,
-    "tortillas": 4.00,
-    "sour cream": 4.00,
-    "salsa": 4.00,
-    "guacamole": 5.00,
-    "cheese": 5.00,
-    "fish sauce": 5.00,
-    "oyster sauce": 5.00,
-    "hoisin sauce": 5.00,
-    "teriyaki sauce": 5.00,
+# ---------------------------------------------------------------------------
+# Zero-cost staples: items most kitchens already have. Filtered from cart
+# but reported back so the LLM can mention them in the response text.
+# ---------------------------------------------------------------------------
+ZERO_COST_STAPLES = {
+    "water", "ice", "tap water", "cold water", "warm water", "hot water",
+    "boiling water", "cooking spray", "nonstick spray", "nonstick cooking spray",
 }
+
+# ---------------------------------------------------------------------------
+# Category-aware pricing engine
+# ---------------------------------------------------------------------------
+# Prices are per PURCHASE UNIT (the smallest package you'd buy at a store),
+# not per recipe-quantity. _get_price returns the cost for the gap quantity.
+
+# Per-item prices: what you'd pay for a single store package
+PRICE_PER_ITEM = {
+    # Proteins (per lb or typical package)
+    "salmon": 12.99, "tuna": 10.99, "shrimp": 11.99,
+    "chicken breast": 7.49, "chicken thigh": 5.49, "chicken": 6.49,
+    "ground beef": 6.99, "steak": 14.99, "beef": 8.99,
+    "pork chops": 7.99, "pork": 6.99, "bacon": 6.99, "sausage": 5.49,
+    "tofu": 2.99, "tempeh": 3.99,
+    # Grains & starches
+    "sushi rice": 4.99, "rice": 3.49, "pasta": 1.99, "noodles": 2.49,
+    "ramen noodles": 1.49, "bread": 3.49, "flour": 3.99,
+    "pizza dough": 3.99, "tortillas": 3.49, "pita": 3.49,
+    "panko breadcrumbs": 3.29, "breadcrumbs": 2.99, "cornstarch": 2.49,
+    # Dairy & eggs
+    "eggs": 4.49, "milk": 3.99, "heavy cream": 4.49, "cream": 4.49,
+    "butter": 4.99, "cream cheese": 3.49, "sour cream": 2.99,
+    "yogurt": 4.49, "mozzarella": 4.49, "parmesan": 5.99,
+    "cheddar": 4.49, "cheese": 4.49,
+    # Produce (per piece / bunch / lb)
+    "avocado": 1.50, "cucumber": 0.99, "tomato": 0.99, "tomatoes": 1.99,
+    "onion": 0.99, "red onion": 1.29, "garlic": 0.75, "ginger": 0.99,
+    "lemon": 0.69, "lime": 0.49, "cilantro": 0.99, "parsley": 0.99,
+    "green onion": 0.99, "scallion": 0.99, "mushrooms": 2.99,
+    "spinach": 2.99, "broccoli": 2.49, "bell pepper": 1.29,
+    "jalapeño": 0.49, "serrano pepper": 0.39, "lettuce": 1.99,
+    "cabbage": 2.49, "carrot": 0.99, "carrots": 1.49, "celery": 1.99,
+    "potato": 0.99, "potatoes": 3.49, "sweet potato": 1.49,
+    "corn": 0.79, "zucchini": 1.29, "eggplant": 2.49,
+    # Canned / jarred
+    "black beans": 1.49, "kidney beans": 1.49, "chickpeas": 1.49,
+    "lentils": 1.99, "canned tomatoes": 1.69, "diced tomatoes": 1.69,
+    "tomato sauce": 1.49, "tomato paste": 1.29, "coconut milk": 2.29,
+    "vegetable broth": 2.99, "chicken broth": 2.99, "beef broth": 2.99,
+    # Sauces & condiments (per bottle)
+    "soy sauce": 3.49, "fish sauce": 3.99, "oyster sauce": 3.99,
+    "hoisin sauce": 3.99, "teriyaki sauce": 3.99, "sriracha": 3.99,
+    "hot sauce": 2.99, "salsa": 3.49, "ketchup": 2.99, "mustard": 2.49,
+    "mayonnaise": 3.99, "guacamole": 4.49, "tahini": 5.49,
+    "rice vinegar": 2.99, "balsamic vinegar": 4.99, "vinegar": 2.49,
+    "mirin": 4.99, "sake": 7.99, "dashi": 4.49, "miso paste": 4.99,
+    "wasabi": 3.49, "pickled ginger": 3.49,
+    # Oils & fats
+    "olive oil": 7.99, "extra virgin olive oil": 8.99,
+    "vegetable oil": 4.49, "sesame oil": 4.99, "coconut oil": 6.99,
+    # Specialty / Asian
+    "nori": 4.49, "seaweed": 3.99,
+}
+
+# Spices & dried herbs: these are cheap per recipe-quantity even though
+# the jar costs a few dollars. Price is per tsp/tbsp used.
+SPICE_KEYWORDS = {
+    "salt", "pepper", "black pepper", "white pepper", "cayenne",
+    "cumin", "paprika", "smoked paprika", "chili powder", "curry powder",
+    "turmeric", "cinnamon", "nutmeg", "cloves", "allspice", "cardamom",
+    "coriander", "fennel seed", "mustard seed", "celery seed",
+    "oregano", "basil", "thyme", "rosemary", "dill", "bay leaf",
+    "bay leaves", "sage", "tarragon", "marjoram", "italian seasoning",
+    "garlic powder", "onion powder", "ginger powder",
+    "red pepper flakes", "crushed red pepper", "chili flakes",
+    "sesame seeds", "poppy seeds", "everything bagel seasoning",
+    "five spice", "chinese five spice", "garam masala", "za'atar",
+    "herbes de provence", "old bay", "tajin",
+}
+SPICE_PRICE_PER_TSP = 0.15  # ~$4 jar ÷ ~27 tsp
+
+# Sugar & baking basics: cheap per recipe quantity
+BAKING_BASICS = {"sugar", "brown sugar", "powdered sugar", "confectioners sugar",
+                 "baking soda", "baking powder", "vanilla extract", "vanilla",
+                 "yeast", "active dry yeast", "cocoa powder", "honey", "maple syrup"}
+BAKING_PRICE_PER_UNIT = {"tsp": 0.10, "tbsp": 0.25, "cup": 0.60, "packet": 0.75}
+
+# Units that indicate small/measured quantities (spice-scale)
+SMALL_UNITS = {"tsp", "teaspoon", "teaspoons", "tbsp", "tablespoon", "tablespoons",
+               "pinch", "dash", "to taste", "sprinkle"}
 
 _model = None
 
@@ -270,24 +271,86 @@ def initialize_nn() -> None:
         _model.eval()
 
 
-def _get_price(item_name: str) -> float:
-    """Look up estimated price for an item."""
+def _is_staple(item_name: str) -> bool:
+    """Check if an item is a zero-cost kitchen staple."""
     normalized = item_name.lower().strip()
-    if normalized in PRICE_LOOKUP:
-        return PRICE_LOOKUP[normalized]
+    return normalized in ZERO_COST_STAPLES
+
+
+def _is_spice(item_name: str, unit: str) -> bool:
+    """Check if an item is a spice/dried herb."""
+    normalized = item_name.lower().strip()
+    if normalized in SPICE_KEYWORDS:
+        return True
+    # Also treat anything in small-measure units with spice-like names
+    if unit.lower() in SMALL_UNITS:
+        for kw in SPICE_KEYWORDS:
+            if kw in normalized or normalized in kw:
+                return True
+    return False
+
+
+def _get_price(item_name: str, quantity: float = 1.0, unit: str = "") -> float:
+    """
+    Category-aware price estimation.
+    Returns the total price for the given quantity, not per-unit.
+    """
+    normalized = item_name.lower().strip()
+    unit_lower = unit.lower().strip()
+
+    # Zero-cost staples
+    if normalized in ZERO_COST_STAPLES:
+        return 0.00
+
+    # Spices & dried herbs: price by measured quantity
+    if _is_spice(normalized, unit_lower):
+        if unit_lower in ("pinch", "dash", "to taste", "sprinkle"):
+            return round(0.05 * max(quantity, 1), 2)
+        elif unit_lower in ("tsp", "teaspoon", "teaspoons"):
+            return round(SPICE_PRICE_PER_TSP * quantity, 2)
+        elif unit_lower in ("tbsp", "tablespoon", "tablespoons"):
+            return round(SPICE_PRICE_PER_TSP * 3 * quantity, 2)  # 1 tbsp = 3 tsp
+        else:
+            # Whole jar / unspecified — return jar price
+            return 3.99
+
+    # Baking basics: cheap per recipe quantity
+    if normalized in BAKING_BASICS:
+        price_per = BAKING_PRICE_PER_UNIT.get(unit_lower, 0.35)
+        return round(price_per * quantity, 2)
+
+    # Exact match in price table
+    if normalized in PRICE_PER_ITEM:
+        return PRICE_PER_ITEM[normalized]
+
     # Partial match
-    for key, price in PRICE_LOOKUP.items():
+    for key, price in PRICE_PER_ITEM.items():
         if key in normalized or normalized in key:
             return price
-    return 5.00
+
+    # Category fallback based on unit
+    if unit_lower in ("lb", "lbs", "pound", "pounds"):
+        return round(4.99 * quantity, 2)  # generic per-lb
+    elif unit_lower in ("oz", "ounce", "ounces"):
+        return round(0.50 * quantity, 2)  # generic per-oz
+    elif unit_lower in ("cup", "cups"):
+        return round(1.50 * quantity, 2)
+    elif unit_lower in SMALL_UNITS:
+        return round(0.25 * quantity, 2)
+
+    # Final fallback: modest generic price
+    return 2.99
 
 
-def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> list[dict]:
+def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> tuple[list[dict], list[str]]:
     """
     Score each ingredient gap with the NN and return items with score >= 0.5,
-    sorted by score descending.
+    sorted by score descending. Zero-cost staples are separated out.
 
-    Returns: [{"item": str, "quantity": float, "unit": str, "score": float, "estimated_price": float}]
+    Returns:
+        (cart_items, staples_assumed)
+        cart_items: [{"item": str, "quantity": float, "unit": str, "score": float, "estimated_price": float}]
+        staples_assumed: ["water", "salt", ...] — items assumed to be on hand
     """
     global _model
     if _model is None:
@@ -297,6 +360,7 @@ def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> list[
     cuisine_weights = preferences.get("cuisine_weights", {})
     budget = float(preferences.get("budget_per_order", 80.0))
     disliked = [d.lower() for d in preferences.get("disliked_ingredients", [])]
+    quality_priority = float(preferences.get("quality_priority", 0.5))
 
     tonight_guests = int(calendar.get("tonight_guests", 2))
     events = calendar.get("events_this_week", [])
@@ -311,6 +375,7 @@ def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> list[
 
     estimated_spend = 0.0
     results = []
+    staples_assumed = []
 
     _model.eval()
     with torch.no_grad():
@@ -320,6 +385,11 @@ def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> list[
             available = float(gap_item.get("available", 0.0))
             unit = gap_item.get("unit", "")
             gap_qty = float(gap_item.get("gap", required - available))
+
+            # Filter zero-cost staples
+            if _is_staple(item_name):
+                staples_assumed.append(item_name)
+                continue
 
             # Gap ratio: how much is missing relative to required
             gap_ratio = gap_qty / required if required > 0 else 1.0
@@ -336,7 +406,10 @@ def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> list[
             if any(d in item_lower for d in disliked):
                 dietary_conflict = True
 
-            estimated_price = _get_price(item_name)
+            raw_price = _get_price(item_name, gap_qty, unit)
+            # Quality multiplier: 0.85x at full budget-mode, 1.15x at full quality-mode
+            quality_mult = 0.85 + (quality_priority * 0.30)
+            estimated_price = round(raw_price * quality_mult, 2)
             budget_remaining_ratio = max(0.0, (budget - estimated_spend) / budget) if budget > 0 else 0.0
 
             # Historical reorder: simulate with a fixed seed based on item name
@@ -367,8 +440,8 @@ def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> list[
                     "score": round(score, 4),
                     "estimated_price": estimated_price,
                 })
-                estimated_spend += estimated_price * gap_qty
+                estimated_spend += estimated_price
 
     # Sort by score descending
     results.sort(key=lambda x: x["score"], reverse=True)
-    return results
+    return results, staples_assumed

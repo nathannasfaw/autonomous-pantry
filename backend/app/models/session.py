@@ -11,6 +11,11 @@ class ChatRequest(BaseModel):
     message: str
 
 
+class PreferencesUpdate(BaseModel):
+    conversation_id: str
+    preferences: dict
+
+
 class ChatResponse(BaseModel):
     conversation_id: str
     message: str

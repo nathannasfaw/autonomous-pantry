@@ -169,6 +169,7 @@ For SPECIFIC dish requests or user selecting an option, search then return:
     "prep_time": "20 min",
     "cook_time": "25 min",
     "source_url": "url where recipe was found",
+    "image_url": "url of a photo of the dish from the recipe page or search results (must be a direct image URL ending in .jpg/.png/.webp or from a CDN). Use the best quality image you can find. If none found, use empty string.",
     "ingredients": [
       {{"item": "ingredient name", "quantity": 1.5, "unit": "lbs"}},
       ...
@@ -217,11 +218,14 @@ def call_llm_cart_narration(
     preferences: dict,
     budget: float,
     cart_total: float = 0.0,
+    staples_assumed: list | None = None,
 ) -> dict:
     """
     LLM Call 2: Narrate the NN-generated cart in a friendly, conversational way.
     No web search needed.
     """
+    staples_str = ", ".join(staples_assumed) if staples_assumed else "none"
+
     system = f"""You are a friendly grocery assistant. A neural network has analyzed the user's pantry
 and generated purchase recommendations. Your job is to present these clearly and conversationally.
 
@@ -232,10 +236,11 @@ NN recommendations: {json.dumps(nn_recommendations)}
 User preferences: {json.dumps(preferences)}
 Budget: {budget}
 Cart total (exact, computed from item prices — use this number, do NOT estimate): ${cart_total:.2f}
+Staples assumed on hand (filtered from cart): {staples_str}
 
 Return JSON only:
 {{
-  "message": "Use markdown formatting. Start with what the user already has in their pantry (if any), then clearly list what needs to be added. Use **bold** for item names. End with the exact cart total: ${cart_total:.2f}. Be concise but friendly.",
+  "message": "Use markdown formatting. Keep it SHORT — 2-3 sentences max. Mention what key items they already have from their pantry. If staples were assumed on hand, briefly note them (e.g. 'I'm assuming you have water and salt on hand'). Mention the total: ${cart_total:.2f}. Do NOT list every cart item individually — the user already sees those in a separate order card. Be warm and concise.",
   "cart_summary": "one line summary of total items and cost",
   "status": "cart_proposed"
 }}"""

@@ -1,14 +1,8 @@
+import { useState } from 'react'
+import { useChat } from './hooks/useChat'
 import ChatWindow from './components/ChatWindow'
-
-const AsteriskLogo = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="2.2" strokeLinecap="round">
-    <line x1="12" y1="2" x2="12" y2="22"/>
-    <line x1="2" y1="12" x2="22" y2="12"/>
-    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
-    <line x1="19.07" y1="4.93" x2="4.93" y2="19.07"/>
-  </svg>
-)
+import PreferencesPanel from './components/PreferencesPanel'
+import chefLogo from './assets/logo.png'
 
 const PlusIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -31,7 +25,22 @@ const BoxIcon = () => (
   </svg>
 )
 
+const SlidersIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/>
+    <line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/>
+    <line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
+    <line x1="1" y1="14" x2="7" y2="14"/>
+    <line x1="9" y1="8" x2="15" y2="8"/>
+    <line x1="17" y1="16" x2="23" y2="16"/>
+  </svg>
+)
+
 export default function App() {
+  const { messages, isLoading, sendMessage, preferences, updatePreferences } = useChat()
+  const [activeTab, setActiveTab] = useState('chat')
+
   return (
     <div className="h-screen flex" style={{ background: 'var(--bg-page)' }}>
       {/* Sidebar */}
@@ -41,37 +50,62 @@ export default function App() {
       >
         {/* Brand */}
         <div className="px-4 pb-3 mb-1 flex items-center gap-2.5" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
-          <div className="w-7 h-7 rounded-lg bg-zinc-900 flex items-center justify-center text-white">
-            <AsteriskLogo />
-          </div>
-          <span className="font-semibold text-sm text-zinc-900 leading-tight">Autonomous Pantry</span>
+          <img src={chefLogo} alt="Autonomous Pantry" className="w-7 h-7 rounded-lg object-cover" />
+          <span className="font-semibold text-sm leading-tight" style={{ color: 'var(--text-primary)' }}>Autonomous Pantry</span>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-2 pt-2 space-y-0.5">
-          <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors text-left">
+        <nav className="px-2 pt-2 space-y-0.5">
+          <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left hover:bg-[#3F4147]" style={{ color: 'var(--text-secondary)' }}>
             <PlusIcon />
             New Chat
           </button>
-          <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium bg-zinc-100 text-zinc-900 text-left">
+          <button
+            onClick={() => setActiveTab('chat')}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors"
+            style={{
+              background: activeTab === 'chat' ? '#3F4147' : 'transparent',
+              color: activeTab === 'chat' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            }}
+          >
             <ChatIcon />
             Chat
           </button>
-          <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-zinc-500 hover:bg-zinc-50 transition-colors text-left">
+          <button
+            onClick={() => setActiveTab('preferences')}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors"
+            style={{
+              background: activeTab === 'preferences' ? '#3F4147' : 'transparent',
+              color: activeTab === 'preferences' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            }}
+          >
+            <SlidersIcon />
+            Preferences
+          </button>
+          <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left hover:bg-[#3F4147]" style={{ color: 'var(--text-muted)' }}>
             <BoxIcon />
             Pantry
           </button>
         </nav>
 
+        {/* Preferences inline when tab is active */}
+        {activeTab === 'preferences' && (
+          <div className="flex-1 mt-3 overflow-hidden" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
+            <div className="pt-3">
+              <PreferencesPanel preferences={preferences} onUpdate={updatePreferences} />
+            </div>
+          </div>
+        )}
+
         {/* Footer */}
-        <div className="px-4 pt-3" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
-          <p className="text-xs text-zinc-400">AI-powered grocery assistant</p>
+        <div className="px-4 pt-3 mt-auto" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>AI-powered grocery assistant</p>
         </div>
       </aside>
 
       {/* Main */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        <ChatWindow />
+        <ChatWindow messages={messages} isLoading={isLoading} sendMessage={sendMessage} />
       </main>
     </div>
   )

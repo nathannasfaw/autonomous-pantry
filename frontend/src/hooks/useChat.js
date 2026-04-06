@@ -6,6 +6,7 @@ export function useChat() {
   const [conversationId, setConversationId] = useState(null)
   const [messages, setMessages] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [preferences, setPreferences] = useState(null)
 
   // Auto-start session on mount
   useEffect(() => {
@@ -20,6 +21,12 @@ export function useChat() {
         }
         const data = await response.json()
         setConversationId(data.conversation_id)
+
+        // Load default preferences
+        const prefResp = await fetch(`${API_BASE}/chat/preferences/${data.conversation_id}`)
+        if (prefResp.ok) {
+          setPreferences(await prefResp.json())
+        }
       } catch (err) {
         console.error('Failed to start chat session:', err)
         setMessages([
@@ -105,5 +112,26 @@ export function useChat() {
     [conversationId]
   )
 
-  return { messages, isLoading, sendMessage, conversationId }
+  const updatePreferences = useCallback(
+    async (newPrefs) => {
+      if (!conversationId) return
+      // Optimistic update
+      setPreferences(prev => ({ ...prev, ...newPrefs }))
+      try {
+        await fetch(`${API_BASE}/chat/preferences`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversation_id: conversationId,
+            preferences: newPrefs,
+          }),
+        })
+      } catch (err) {
+        console.error('Failed to update preferences:', err)
+      }
+    },
+    [conversationId]
+  )
+
+  return { messages, isLoading, sendMessage, conversationId, preferences, updatePreferences }
 }

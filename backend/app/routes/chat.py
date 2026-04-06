@@ -6,7 +6,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from app.models.session import ChatRequest, ChatResponse, StartSessionResponse
+from app.models.session import ChatRequest, ChatResponse, StartSessionResponse, PreferencesUpdate
 from app.services import session_manager, gap_analysis, nn_service, llm_service, instacart_stub
 
 logger = logging.getLogger(__name__)
@@ -19,6 +19,25 @@ async def start_chat():
     """Create a new conversation session."""
     session_id = session_manager.create_session()
     return StartSessionResponse(conversation_id=session_id)
+
+
+@router.post("/preferences")
+async def update_preferences(request: PreferencesUpdate):
+    """Update user preferences for an existing session."""
+    session = session_manager.get_session(request.conversation_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    session["preferences"].update(request.preferences)
+    return {"status": "ok", "preferences": session["preferences"]}
+
+
+@router.get("/preferences/{conversation_id}")
+async def get_preferences(conversation_id: str):
+    """Get current preferences for a session."""
+    session = session_manager.get_session(conversation_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return session["preferences"]
 
 
 @router.post("/message", response_model=ChatResponse)
@@ -195,7 +214,7 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
     session["ingredient_gaps"] = gaps
 
     # Run NN recommendations
-    nn_recs = nn_service.recommend(
+    nn_recs, staples_assumed = nn_service.recommend(
         ingredient_gaps=gaps,
         calendar=session["calendar_context"],
         preferences=session["preferences"],
@@ -203,6 +222,7 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
 
     session["nn_original_cart"] = list(nn_recs)  # immutable reference
     session["current_cart"] = [dict(item) for item in nn_recs]  # mutable working copy
+    session["staples_assumed"] = staples_assumed
 
     # LLM Call 2: narrate cart
     cart_total = _compute_cart_total(nn_recs)
@@ -214,6 +234,7 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
         preferences=session["preferences"],
         budget=session["preferences"].get("budget_per_order", 80.0),
         cart_total=cart_total,
+        staples_assumed=staples_assumed,
     )
 
     session["stage"] = "cart_proposed"
@@ -222,8 +243,6 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
 
 
 def _compute_cart_total(cart: list) -> float:
-    """Compute the total estimated cost of the current cart."""
-    return sum(
-        item.get("estimated_price", 0) * item.get("quantity", 1)
-        for item in cart
-    )
+    """Compute the total estimated cost of the current cart.
+    estimated_price already accounts for quantity (set by the pricing engine)."""
+    return sum(item.get("estimated_price", 0) for item in cart)

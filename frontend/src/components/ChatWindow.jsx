@@ -1,23 +1,12 @@
 import { useRef, useEffect } from 'react'
-import { useChat } from '../hooks/useChat'
 import MessageBubble from './MessageBubble'
 import TypingIndicator from './TypingIndicator'
 import InputBar from './InputBar'
-
-const AsteriskLogo = () => (
-  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="1.6" strokeLinecap="round">
-    <line x1="12" y1="2" x2="12" y2="22"/>
-    <line x1="2" y1="12" x2="22" y2="12"/>
-    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
-    <line x1="19.07" y1="4.93" x2="4.93" y2="19.07"/>
-  </svg>
-)
+import chefLogo from '../assets/logo.png'
 
 const SUGGESTIONS = ['Sushi', 'Pizza', 'Tacos', 'Pasta', 'Ramen']
 
-export default function ChatWindow() {
-  const { messages, isLoading, sendMessage } = useChat()
+export default function ChatWindow({ messages, isLoading, sendMessage }) {
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -37,24 +26,40 @@ export default function ChatWindow() {
 
   return (
     <div className="h-full flex flex-col relative">
-      <div className="flex-1 overflow-y-auto pt-8 pb-36 px-6">
-        <div className="max-w-2xl mx-auto space-y-5">
+      {/* Subtle top gradient overlay */}
+      <div
+        className="absolute top-0 left-0 right-0 pointer-events-none"
+        style={{
+          height: '30%',
+          background: 'linear-gradient(180deg, rgba(0,97,160,0.18) 0%, rgba(13,94,157,0.10) 50%, transparent 100%)',
+          zIndex: 1,
+        }}
+      />
+      <div className="flex-1 overflow-y-auto pt-8 pb-36 px-6 relative" style={{ zIndex: 2 }}>
+        <div className="max-w-4xl mx-auto space-y-5">
 
           {messages.length === 0 && !isLoading ? (
             <div className="flex flex-col items-center justify-center min-h-[65vh] text-center">
-              <div className="text-zinc-300 mb-6">
-                <AsteriskLogo />
+              <div className="mb-6">
+                <img src={chefLogo} alt="Autonomous Pantry" className="w-16 h-16" />
               </div>
-              <h2 className="text-2xl font-semibold text-zinc-900 mb-1 tracking-tight">
+              <h2 className="text-2xl font-semibold mb-1 tracking-tight" style={{ color: 'var(--text-primary)' }}>
                 Hope the day's treating you well
               </h2>
-              <p className="text-sm text-zinc-400 mb-8">What would you like to cook today?</p>
+              <p className="text-sm mb-8" style={{ color: 'var(--text-muted)' }}>What would you like to cook today?</p>
               <div className="flex flex-wrap gap-2 justify-center">
                 {SUGGESTIONS.map((label) => (
                   <button
                     key={label}
                     onClick={() => sendMessage(`I want to make ${label.toLowerCase()}`)}
-                    className="rounded-full border border-zinc-200 text-zinc-600 text-sm px-4 py-1.5 hover:bg-zinc-100 hover:border-zinc-300 transition-colors"
+                    className="rounded-full text-sm px-4 py-1.5 transition-colors"
+                    style={{
+                      border: '1px solid #3F4147',
+                      color: 'var(--text-secondary)',
+                      background: 'transparent',
+                    }}
+                    onMouseEnter={e => { e.target.style.background = '#3F4147'; e.target.style.borderColor = '#4F5159'; }}
+                    onMouseLeave={e => { e.target.style.background = 'transparent'; e.target.style.borderColor = '#3F4147'; }}
                   >
                     {label}
                   </button>
