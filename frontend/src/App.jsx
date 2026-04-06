@@ -55,7 +55,7 @@ export default function App() {
         </div>
 
         {/* Nav */}
-        <nav className="px-2 pt-2 space-y-0.5">
+        <nav className="flex-1 px-2 pt-2 space-y-0.5">
           <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left hover:bg-[#3F4147]" style={{ color: 'var(--text-secondary)' }}>
             <PlusIcon />
             New Chat
@@ -88,24 +88,20 @@ export default function App() {
           </button>
         </nav>
 
-        {/* Preferences inline when tab is active */}
-        {activeTab === 'preferences' && (
-          <div className="flex-1 mt-3 overflow-hidden" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
-            <div className="pt-3">
-              <PreferencesPanel preferences={preferences} onUpdate={updatePreferences} />
-            </div>
-          </div>
-        )}
-
         {/* Footer */}
-        <div className="px-4 pt-3 mt-auto" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
+        <div className="px-4 pt-3" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>AI-powered grocery assistant</p>
         </div>
       </aside>
 
-      {/* Main */}
+      {/* Main content area */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        <ChatWindow messages={messages} isLoading={isLoading} sendMessage={sendMessage} />
+        {activeTab === 'chat' && (
+          <ChatWindow messages={messages} isLoading={isLoading} sendMessage={sendMessage} />
+        )}
+        {activeTab === 'preferences' && (
+          <PreferencesPanel preferences={preferences} onUpdate={updatePreferences} />
+        )}
       </main>
     </div>
   )
