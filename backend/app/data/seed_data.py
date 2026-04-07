@@ -21,10 +21,15 @@ CALENDAR = {
 
 # Simulates preference form + learned chat history
 PREFERENCES = {
-    "dietary_flags": ["no shellfish"],
+    "dietary_flags": [],
     "cuisine_weights": {"Japanese": 0.85, "Italian": 0.70, "Mexican": 0.55},
     "budget_per_order": 80.0,
-    "preferred_organic": True,
-    "disliked_ingredients": ["anchovies", "capers"],
-    "household_size": 2
+    "budget_per_person": 20.0,
+    "quality_priority": 0.5,       # 0 = price-focused, 1 = quality-focused
+    "preferred_organic": False,
+    "disliked_ingredients": [],
+    "household_size": 2,
+    "serving_size": 2,             # default servings per meal
+    "skill_level": "intermediate", # beginner, intermediate, advanced
+    "max_prep_time": 60,           # minutes, 0 = no limit
 }

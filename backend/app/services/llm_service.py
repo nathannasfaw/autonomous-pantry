@@ -6,6 +6,8 @@ Call 2: Cart Narration
 Call 3+: Conversation Loop
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -20,6 +22,56 @@ WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search"}
 
 _client: anthropic.Anthropic | None = None
 
+RECIPE_REQUEST_PATTERNS = [
+    r"\brecipe\b",
+    r"\brecipes\b",
+    r"\bmeal ideas?\b",
+    r"\bsuggest(?: me)?\b",
+    r"\bwhat can i make\b",
+    r"\bwhat should i cook\b",
+    r"\bwhat can i cook\b",
+    r"\bi want to make\b",
+    r"\bi want to cook\b",
+    r"\bfind me\b.*\brecipe\b",
+    r"\bgive me\b.*\brecipe\b",
+    r"\bdinner ideas?\b",
+    r"\blunch ideas?\b",
+    r"\bbreakfast ideas?\b",
+    r"\bmeal suggestions?\b",
+    r"\bcook with\b",
+    r"\bmake with\b",
+]
+
+SCAN_UPDATE_PATTERNS = [
+    r"\bscann?ed my pantry\b",
+    r"\badded the following items\b",
+    r"\bupdated my pantry\b",
+    r"\bplease acknowledge this\b",
+]
+
+NORMALIZATION_PREFIXES = [
+    r"^i want to make\s+",
+    r"^i want to cook\s+",
+    r"^make me\s+",
+    r"^cook me\s+",
+    r"^find me\s+(?:a|an)?\s*",
+    r"^give me\s+(?:a|an)?\s*",
+    r"^show me\s+(?:a|an)?\s*",
+    r"^recipe for\s+",
+    r"^recipes for\s+",
+    r"^how do i make\s+",
+    r"^how to make\s+",
+]
+
+TRAILING_FILLER_PATTERNS = [
+    r"\s+recipe[s]?$",
+    r"\s+for dinner$",
+    r"\s+for lunch$",
+    r"\s+for breakfast$",
+    r"\s+please$",
+    r"[.!?]+$",
+]
+
 
 def _get_client() -> anthropic.Anthropic:
     global _client
@@ -29,24 +81,17 @@ def _get_client() -> anthropic.Anthropic:
 
 
 def _strip_markdown_fences(text: str) -> str:
-    """Remove ```json ... ``` fences and leading/trailing whitespace."""
     text = text.strip()
-    # Remove ```json or ``` fences
     text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\s*```$", "", text)
     return text.strip()
 
 
 def _parse_json_response(text: str) -> dict | None:
-    """
-    Try to parse JSON from LLM response text.
-    Returns None on failure.
-    """
     cleaned = _strip_markdown_fences(text)
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
-        # Try to extract JSON object from within the text
         match = re.search(r"\{.*\}", cleaned, re.DOTALL)
         if match:
             try:
@@ -56,12 +101,49 @@ def _parse_json_response(text: str) -> dict | None:
     return None
 
 
+def is_explicit_recipe_request(message: str) -> bool:
+    normalized = message.lower().strip()
+    if not normalized:
+        return False
+
+    if any(re.search(pattern, normalized) for pattern in SCAN_UPDATE_PATTERNS):
+        return False
+
+    return any(re.search(pattern, normalized) for pattern in RECIPE_REQUEST_PATTERNS)
+
+
+def normalize_recipe_query(message: str) -> str:
+    """
+    Extract the likely dish name from a user request.
+    Example: "I want to make pizza" -> "pizza"
+    """
+    normalized = message.lower().strip()
+    for pattern in NORMALIZATION_PREFIXES:
+        normalized = re.sub(pattern, "", normalized)
+    for pattern in TRAILING_FILLER_PATTERNS:
+        normalized = re.sub(pattern, "", normalized)
+
+    normalized = re.sub(r"^(a|an|the)\s+", "", normalized)
+    normalized = re.sub(r"\s+", " ", normalized).strip(" ,.-")
+    return normalized or message.strip()
+
+
+def _is_specific_recipe_request(message: str) -> bool:
+    lowered = message.lower()
+    open_ended_markers = [
+        "what can i make",
+        "what should i cook",
+        "what can i cook",
+        "meal ideas",
+        "dinner ideas",
+        "lunch ideas",
+        "breakfast ideas",
+        "suggest",
+    ]
+    return not any(marker in lowered for marker in open_ended_markers)
+
+
 def _run_agentic_loop(system: str, user_message: str, tools: list | None = None) -> str:
-    """
-    Run the Anthropic API in an agentic loop until stop_reason == "end_turn".
-    Handles tool use (web_search) automatically.
-    Returns the final text content as a string.
-    """
     client = _get_client()
     messages = [{"role": "user", "content": user_message}]
 
@@ -79,25 +161,139 @@ def _run_agentic_loop(system: str, user_message: str, tools: list | None = None)
     while True:
         response = client.messages.create(**kwargs)
 
-        # Collect text blocks from this response
         for block in response.content:
             if hasattr(block, "type") and block.type == "text":
-                accumulated_text = block.text  # keep the latest text block
+                accumulated_text = block.text
 
         if response.stop_reason == "end_turn":
             break
 
         if response.stop_reason == "tool_use":
-            # web_search_20250305 is a server-side tool — Anthropic executes the search.
-            # Just append the assistant turn and continue; do NOT send fake tool results
-            # as that overrides the actual search results Anthropic provides.
             messages.append({"role": "assistant", "content": response.content})
             kwargs["messages"] = messages
         else:
-            # Unexpected stop reason — break out
             break
 
     return accumulated_text
+
+
+def _validate_recipe_payload(recipe: dict | None, normalized_query: str) -> tuple[bool, str]:
+    if not recipe:
+        return False, "missing recipe object"
+
+    recipe_name = str(recipe.get("name", "")).strip()
+    ingredients = recipe.get("ingredients") or []
+    source_url = str(recipe.get("source_url", "")).strip()
+    steps_summary = str(recipe.get("steps_summary", "")).strip()
+
+    if not recipe_name:
+        return False, "missing recipe name"
+    if recipe_name.lower().strip() == normalized_query.lower().strip() and not ingredients:
+        return False, "query echoed back without recipe details"
+    if len(ingredients) < 3:
+        return False, f"too few ingredients ({len(ingredients)})"
+    if not source_url:
+        return False, "missing source url"
+    if not steps_summary:
+        return False, "missing steps summary"
+
+    return True, "ok"
+
+
+def _build_recipe_failure(normalized_query: str, pantry: list | None, reason: str) -> dict:
+    pantry_names = [item.get("item", "") for item in (pantry or []) if item.get("item")]
+    pantry_preview = ", ".join(pantry_names[:5]) if pantry_names else "your current pantry"
+    return {
+        "message": (
+            f"I couldn't find a solid **{normalized_query}** recipe to trust just yet. "
+            f"I checked against {pantry_preview}. If you want, I can suggest a similar dish "
+            f"or help you build a shopping list for **{normalized_query}**."
+        ),
+        "options": [
+            {"name": f"{normalized_query} alternatives", "uses_from_pantry": pantry_names[:3], "needs": ["recipe retry"]},
+        ],
+        "recipe": None,
+        "status": "recipe_lookup_failed",
+        "failure_reason": reason,
+        "normalized_query": normalized_query,
+    }
+
+
+def _attempt_recipe_lookup(
+    *,
+    system: str,
+    user_input: str,
+    normalized_query: str,
+    pantry: list | None,
+    retry_on_failure: bool,
+) -> dict:
+    raw_text = _run_agentic_loop(system, user_input, tools=[WEB_SEARCH_TOOL])
+    parsed = _parse_json_response(raw_text)
+    if not parsed:
+        logger.warning(
+            "Recipe response parse failed: normalized=%r retry=%s raw=%r",
+            normalized_query,
+            retry_on_failure,
+            raw_text[:300],
+        )
+        if retry_on_failure:
+            retry_system = system + """
+
+RETRY INSTRUCTION:
+- Your previous response was malformed or incomplete.
+- Return exactly one valid JSON object.
+- Do not include markdown fences.
+- Do not omit recipe fields.
+- If you cannot produce a valid recipe object, return status "recipe_lookup_failed".
+"""
+            return _attempt_recipe_lookup(
+                system=retry_system,
+                user_input=user_input,
+                normalized_query=normalized_query,
+                pantry=pantry,
+                retry_on_failure=False,
+            )
+        return _build_recipe_failure(normalized_query, pantry, "unparseable_llm_response")
+
+    parsed.setdefault("normalized_query", normalized_query)
+    status = parsed.get("status")
+
+    if status == "recipe_found":
+        valid, reason = _validate_recipe_payload(parsed.get("recipe"), normalized_query)
+        if not valid:
+            logger.warning(
+                "Recipe payload validation failed: normalized=%r retry=%s reason=%s payload=%r",
+                normalized_query,
+                retry_on_failure,
+                reason,
+                parsed.get("recipe"),
+            )
+            if retry_on_failure:
+                retry_system = system + f"""
+
+RETRY INSTRUCTION:
+- Your previous recipe payload failed validation: {reason}
+- Use the normalized dish query {json.dumps(normalized_query)}.
+- Return a complete valid recipe object with a real source_url and at least 3 ingredients.
+- If you cannot, return status "recipe_lookup_failed".
+"""
+                return _attempt_recipe_lookup(
+                    system=retry_system,
+                    user_input=user_input,
+                    normalized_query=normalized_query,
+                    pantry=pantry,
+                    retry_on_failure=False,
+                )
+            return _build_recipe_failure(normalized_query, pantry, reason)
+
+    logger.info(
+        "Recipe lookup result: normalized=%r status=%s ingredients=%d retry=%s",
+        normalized_query,
+        status,
+        len((parsed.get("recipe") or {}).get("ingredients") or []),
+        retry_on_failure,
+    )
+    return parsed
 
 
 def call_llm_recipe(
@@ -107,43 +303,60 @@ def call_llm_recipe(
     messages: list,
     pantry: list | None = None,
 ) -> dict:
-    """
-    LLM Call 1: Understand the user's dish request and either:
-      - Present 2-3 recipe options (open-ended requests like "what can I make")
-      - Search the web and return a full recipe (specific dish or user has chosen an option)
-    """
     pantry_str = json.dumps(pantry or [])
-    # Build a readable conversation history so the LLM knows if options were already shown
     history_str = json.dumps([
         {"role": m["role"], "content": m["content"]}
         for m in (messages or [])
         if m.get("role") in ("user", "assistant")
     ])
+    normalized_query = normalize_recipe_query(user_message)
+    specific_request = _is_specific_recipe_request(user_message)
+
+    logger.info(
+        "Recipe request received: original=%r normalized=%r pantry_items=%d specific=%s",
+        user_message,
+        normalized_query,
+        len(pantry or []),
+        specific_request,
+    )
 
     system = f"""You are a grocery assistant. The user wants help deciding what to cook.
 
-PANTRY (already owned — do NOT ask for this):
+PANTRY (already owned - do NOT ask for this):
 {pantry_str}
 
 Calendar context: {json.dumps(calendar)}
 User preferences: {json.dumps(preferences)}
 Recent conversation: {history_str}
+Normalized dish query: {json.dumps(normalized_query)}
 
-DECISION RULES — read the user's request carefully:
+DECISION RULES - read the user's request carefully:
+
+0. ONLY start recipe flow if the user explicitly asks for a recipe, meal idea, or cooking suggestion.
+   If the message is just a pantry update, acknowledgement, status note, or non-recipe chat,
+   return status "not_recipe_request" with recipe null and options null.
 
 1. OPEN-ENDED request ("what can I make", "suggest something", "based on my pantry"):
-   → Do NOT search the web yet.
-   → Look at the pantry contents and preferences, then suggest 2-3 specific dishes they can make
-     with minimal extra ingredients.
-   → Return status "options_presented".
+   -> Do NOT search the web yet.
+   -> Look at the pantry contents and preferences, then suggest 2-3 specific dishes they can make
+      with minimal extra ingredients.
+   -> Return status "options_presented".
 
-2. SPECIFIC dish request ("make tacos", "I want pasta") OR user is picking from options you already listed:
-   → Use the web search tool to find a real recipe immediately. No questions.
-   → Return status "recipe_found".
+2. SPECIFIC dish request:
+   -> Use the normalized dish query for web search.
+   -> Search for one solid recipe only if you can provide a real recipe URL and a complete ingredient list.
+   -> If you cannot find a trustworthy recipe, return status "recipe_lookup_failed".
 
 CRITICAL:
-- NEVER ask what is in the pantry — it is provided above.
+- NEVER ask what is in the pantry - it is provided above.
 - NEVER ask clarifying questions.
+- NEVER echo the whole user phrase as the recipe name if it contains request words like "I want to make".
+- For valid recipe_found results, recipe.name must be the dish name, not the raw user sentence.
+- A valid recipe_found result MUST include:
+  1. a normalized recipe name
+  2. at least 3 ingredients
+  3. a non-empty source_url
+  4. a non-empty steps_summary
 - Return ONLY valid JSON. No markdown fences, no extra text.
 - For serving size: use tonight_guests from calendar if set, otherwise 2.
 
@@ -156,7 +369,29 @@ For OPEN-ENDED requests return:
     {{"name": "Dish Name", "uses_from_pantry": ["item1", "item2", "item3"], "needs": ["extra1"]}}
   ],
   "recipe": null,
-  "status": "options_presented"
+  "status": "options_presented",
+  "normalized_query": {json.dumps(normalized_query)}
+}}
+
+For NON-RECIPE messages return:
+{{
+  "message": "Brief acknowledgement that no recipe flow was started.",
+  "options": null,
+  "recipe": null,
+  "status": "not_recipe_request",
+  "normalized_query": {json.dumps(normalized_query)}
+}}
+
+For FAILED SPECIFIC requests return:
+{{
+  "message": "Short apology that no trustworthy recipe was found. Offer a retry or a similar dish.",
+  "options": [
+    {{"name": "Similar Dish", "uses_from_pantry": ["item1"], "needs": ["extra1", "extra2"]}}
+  ],
+  "recipe": null,
+  "status": "recipe_lookup_failed",
+  "failure_reason": "short machine-readable reason",
+  "normalized_query": {json.dumps(normalized_query)}
 }}
 
 For SPECIFIC dish requests or user selecting an option, search then return:
@@ -169,44 +404,29 @@ For SPECIFIC dish requests or user selecting an option, search then return:
     "prep_time": "20 min",
     "cook_time": "25 min",
     "source_url": "url where recipe was found",
+    "image_url": "url of a photo of the dish from the recipe page or search results. If none found, use empty string.",
     "ingredients": [
       {{"item": "ingredient name", "quantity": 1.5, "unit": "lbs"}},
-      ...
+      {{"item": "ingredient name", "quantity": 2, "unit": "cups"}},
+      {{"item": "ingredient name", "quantity": 1, "unit": "tbsp"}}
     ],
     "steps_summary": "brief 2-3 sentence summary of cooking steps"
   }},
-  "status": "recipe_found"
+  "status": "recipe_found",
+  "normalized_query": {json.dumps(normalized_query)}
 }}"""
 
     try:
-        raw_text = _run_agentic_loop(system, user_message, tools=[WEB_SEARCH_TOOL])
-        parsed = _parse_json_response(raw_text)
-        if parsed:
-            return parsed
-        else:
-            logger.warning("Failed to parse recipe response. Raw: %r", raw_text[:300])
-            return {
-                "message": "I found a recipe for you! Let me set that up.",
-                "options": None,
-                "recipe": {
-                    "name": user_message,
-                    "servings": calendar.get("tonight_guests", 2),
-                    "prep_time": "20 min",
-                    "cook_time": "30 min",
-                    "source_url": "",
-                    "ingredients": [],
-                    "steps_summary": "Cook and enjoy!",
-                },
-                "status": "recipe_found",
-            }
-    except Exception as e:
-        logger.error(f"LLM Call 1 error: {e}")
-        return {
-            "message": "I had trouble with that request. Could you try again?",
-            "options": None,
-            "recipe": None,
-            "status": "error",
-        }
+        return _attempt_recipe_lookup(
+            system=system,
+            user_input=normalized_query if specific_request else user_message,
+            normalized_query=normalized_query,
+            pantry=pantry,
+            retry_on_failure=True,
+        )
+    except Exception as exc:
+        logger.error("LLM Call 1 error for normalized=%r: %s", normalized_query, exc)
+        return _build_recipe_failure(normalized_query, pantry, "llm_exception")
 
 
 def call_llm_cart_narration(
@@ -217,11 +437,10 @@ def call_llm_cart_narration(
     preferences: dict,
     budget: float,
     cart_total: float = 0.0,
+    staples_assumed: list | None = None,
 ) -> dict:
-    """
-    LLM Call 2: Narrate the NN-generated cart in a friendly, conversational way.
-    No web search needed.
-    """
+    staples_str = ", ".join(staples_assumed) if staples_assumed else "none"
+
     system = f"""You are a friendly grocery assistant. A neural network has analyzed the user's pantry
 and generated purchase recommendations. Your job is to present these clearly and conversationally.
 
@@ -231,11 +450,12 @@ Ingredient gaps: {json.dumps(gaps)}
 NN recommendations: {json.dumps(nn_recommendations)}
 User preferences: {json.dumps(preferences)}
 Budget: {budget}
-Cart total (exact, computed from item prices — use this number, do NOT estimate): ${cart_total:.2f}
+Cart total (exact, computed from item prices - use this number, do NOT estimate): ${cart_total:.2f}
+Staples assumed on hand (filtered from cart): {staples_str}
 
 Return JSON only:
 {{
-  "message": "Use markdown formatting. Start with what the user already has in their pantry (if any), then clearly list what needs to be added. Use **bold** for item names. End with the exact cart total: ${cart_total:.2f}. Be concise but friendly.",
+  "message": "Use markdown formatting. Keep it SHORT - 2-3 sentences max. Mention what key items they already have from their pantry. If staples were assumed on hand, briefly note them. Mention the total: ${cart_total:.2f}. Do NOT claim they already have everything unless the ingredient gaps list is empty and a valid recipe exists.",
   "cart_summary": "one line summary of total items and cost",
   "status": "cart_proposed"
 }}"""
@@ -245,18 +465,18 @@ Return JSON only:
         parsed = _parse_json_response(raw_text)
         if parsed:
             return parsed
-        else:
-            total = sum(
-                item.get("estimated_price", 0) * item.get("quantity", 1)
-                for item in nn_recommendations
-            )
-            return {
-                "message": f"Here's what I recommend adding to your cart based on your recipe and pantry! I've found {len(nn_recommendations)} items totaling about ${total:.2f}.",
-                "cart_summary": f"{len(nn_recommendations)} items · ${total:.2f}",
-                "status": "cart_proposed",
-            }
-    except Exception as e:
-        logger.error(f"LLM Call 2 error: {e}")
+
+        total = sum(
+            item.get("estimated_price", 0) * item.get("quantity", 1)
+            for item in nn_recommendations
+        )
+        return {
+            "message": f"Here are the key items you already have, and I've identified {len(nn_recommendations)} items to add totaling ${total:.2f}.",
+            "cart_summary": f"{len(nn_recommendations)} items · ${total:.2f}",
+            "status": "cart_proposed",
+        }
+    except Exception as exc:
+        logger.error("LLM Call 2 error: %s", exc)
         return {
             "message": "Here's your recommended cart based on what you need!",
             "cart_summary": f"{len(nn_recommendations)} items",
@@ -272,18 +492,12 @@ def call_llm_conversation(
     budget: float,
     messages: list,
 ) -> dict:
-    """
-    LLM Call 3+: Handle conversational turns — modifications, confirmations, questions.
-    No web search needed.
-    """
-    # Format message history
     formatted_messages = [
         {"role": msg["role"], "content": msg["content"]}
         for msg in messages
         if msg.get("role") in ("user", "assistant")
     ]
 
-    # Get the last user message
     user_message = ""
     for msg in reversed(messages):
         if msg.get("role") == "user":
@@ -324,23 +538,22 @@ Return JSON only:
 
 If intent is "reset", cart_diff must be empty.
 If intent is "confirm", set status to "confirmed".
-Always respect dietary_flags from preferences — never add a conflicting item."""
+Always respect dietary_flags from preferences - never add a conflicting item."""
 
     try:
         raw_text = _run_agentic_loop(system, user_message)
         parsed = _parse_json_response(raw_text)
         if parsed:
             return parsed
-        else:
-            return {
-                "message": "I'm not sure I understood that. Could you clarify what you'd like to do with your cart?",
-                "intent": "unclear",
-                "cart_diff": [],
-                "new_intent": "",
-                "status": stage,
-            }
-    except Exception as e:
-        logger.error(f"LLM Call 3 error: {e}")
+        return {
+            "message": "I'm not sure I understood that. Could you clarify what you'd like to do with your cart?",
+            "intent": "unclear",
+            "cart_diff": [],
+            "new_intent": "",
+            "status": stage,
+        }
+    except Exception as exc:
+        logger.error("LLM Call 3 error: %s", exc)
         return {
             "message": "Something went wrong. Could you try again?",
             "intent": "unclear",

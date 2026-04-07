@@ -3,27 +3,30 @@
 @tailwind utilities;
 
 :root {
-  --bg-sidebar: #ffffff;
-  --bg-page: #f7f7f7;
-  --sidebar-border: #ebebeb;
+  --bg-sidebar: #2B2D31;
+  --bg-page: #313338;
+  --bg-darkest: #1E1F22;
+  --bg-card: #36393F;
+  --sidebar-border: #3F4147;
+  --text-primary: #DCDDDE;
+  --text-secondary: #96989D;
+  --text-muted: #72767D;
 
-  --user-bubble-bg: #18181b;
-  --agent-bubble-bg: #ffffff;
-  --agent-bubble-border: #e4e4e7;
+  --user-bubble-bg: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
+  --agent-bubble-bg: #36393F;
+  --agent-bubble-border: #3F4147;
 
-  --card-recipe-header: linear-gradient(135deg, #1c1c1e 0%, #3a3a3c 100%);
-  --card-cart-header: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+  --card-recipe-header: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
+  --card-cart-header: linear-gradient(135deg, #0D5E9D 0%, #074a7a 100%);
   --card-success-header: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
-  --shadow-card: 0 1px 8px rgba(0, 0, 0, 0.08);
-  --shadow-input: 0 2px 20px rgba(0, 0, 0, 0.07);
+  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.3);
+  --shadow-input: 0 2px 20px rgba(0, 0, 0, 0.25);
 
-  /* kept for send button / place order button */
-  --gradient-primary: linear-gradient(135deg, #18181b 0%, #3f3f46 100%);
-  --gradient-recipe: linear-gradient(135deg, #1c1c1e 0%, #3a3a3c 100%);
-  --gradient-cart: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+  --gradient-primary: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
+  --gradient-recipe: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
+  --gradient-cart: linear-gradient(135deg, #0D5E9D 0%, #074a7a 100%);
   --gradient-success: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
 
-  /* legacy aliases kept so no component breaks */
   --bubble-agent-bg: var(--agent-bubble-bg);
   --bubble-agent-border: var(--agent-bubble-border);
 }
@@ -31,13 +34,13 @@
 body {
   font-family: 'Inter', sans-serif;
   background: var(--bg-page);
-  color: #18181b;
+  color: var(--text-primary);
 }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: #4F5159; border-radius: 2px; }
 
 /* Animations */
 @keyframes slideInLeft {
@@ -73,9 +76,9 @@ body {
 }
 
 @keyframes avatarPing {
-  0%   { box-shadow: 0 0 0 0 rgba(24, 24, 27, 0.2); }
-  70%  { box-shadow: 0 0 0 10px rgba(24, 24, 27, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(24, 24, 27, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(0, 97, 160, 0.3); }
+  70%  { box-shadow: 0 0 0 10px rgba(0, 97, 160, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 97, 160, 0); }
 }
 
 .bubble-agent { animation: slideInLeft 0.28s cubic-bezier(0.34, 1.56, 0.64, 1); }

@@ -6,8 +6,21 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from app.models.session import ChatRequest, ChatResponse, StartSessionResponse
-from app.services import session_manager, gap_analysis, nn_service, llm_service, instacart_stub
+from app.models.session import (
+    ChatRequest,
+    ChatResponse,
+    PreferencesUpdate,
+    StartSessionRequest,
+    StartSessionResponse,
+)
+from app.services import (
+    gap_analysis,
+    instacart_stub,
+    llm_service,
+    nn_service,
+    recipe_image_service,
+    session_manager,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,10 +28,30 @@ router = APIRouter()
 
 
 @router.post("/start", response_model=StartSessionResponse)
-async def start_chat():
+async def start_chat(request: StartSessionRequest | None = None):
     """Create a new conversation session."""
-    session_id = session_manager.create_session()
+    client_id = request.client_id if request else None
+    session_id = session_manager.create_session(client_id=client_id)
     return StartSessionResponse(conversation_id=session_id)
+
+
+@router.post("/preferences")
+async def update_preferences(request: PreferencesUpdate):
+    """Update user preferences for an existing session."""
+    session = session_manager.get_session(request.conversation_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    session["preferences"].update(request.preferences)
+    return {"status": "ok", "preferences": session["preferences"]}
+
+
+@router.get("/preferences/{conversation_id}")
+async def get_preferences(conversation_id: str):
+    """Get current preferences for a session."""
+    session = session_manager.get_session(conversation_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return session["preferences"]
 
 
 @router.post("/message", response_model=ChatResponse)
@@ -42,6 +75,21 @@ async def send_message(request: ChatRequest):
     # IDLE stage: find a recipe, compute gaps, run NN, narrate cart
     # -----------------------------------------------------------------------
     if stage == "idle":
+        if not llm_service.is_explicit_recipe_request(user_message):
+            agent_message = (
+                "I can help with pantry questions, or suggest meals when you ask for a "
+                "recipe or meal idea. Try `what can I make with my pantry?` or "
+                "`find me a pasta recipe`."
+            )
+            session["messages"].append({"role": "assistant", "content": agent_message})
+            return ChatResponse(
+                conversation_id=request.conversation_id,
+                message=agent_message,
+                recipe=None,
+                cart=None,
+                stage=session["stage"],
+            )
+
         agent_message, recipe_result = await _handle_idle(session, user_message)
 
         session["messages"].append({"role": "assistant", "content": agent_message})
@@ -169,8 +217,15 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
     )
 
     status = recipe_result.get("status")
+    normalized_query = recipe_result.get("normalized_query", user_message.strip())
+    logger.info(
+        "Idle recipe flow: normalized=%r status=%s pantry_items=%d",
+        normalized_query,
+        status,
+        len(session["pantry_state"]),
+    )
 
-    if status == "error":
+    if status in ("error", "recipe_lookup_failed", "not_recipe_request"):
         session["stage"] = "idle"
         return recipe_result.get("message", "I had trouble with that. Please try again."), recipe_result
 
@@ -184,8 +239,16 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
         return recipe_result.get("message", "I had trouble finding a recipe. Please try again."), recipe_result
 
     recipe = recipe_result["recipe"]
+    recipe = recipe_image_service.populate_recipe_image(recipe)
     session["recipe"] = recipe
     session["full_ingredient_list"] = recipe.get("ingredients", [])
+    logger.info(
+        "Recipe selected: normalized=%r name=%r ingredients=%d image=%r",
+        normalized_query,
+        recipe.get("name"),
+        len(session["full_ingredient_list"]),
+        recipe.get("image_url", ""),
+    )
 
     # Compute ingredient gaps
     gaps = gap_analysis.compute_gaps(
@@ -193,9 +256,15 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
         pantry=session["pantry_state"],
     )
     session["ingredient_gaps"] = gaps
+    logger.info(
+        "Gap analysis complete: normalized=%r gaps=%d matched_pantry=%d",
+        normalized_query,
+        len(gaps),
+        max(0, len(session["full_ingredient_list"]) - len(gaps)),
+    )
 
     # Run NN recommendations
-    nn_recs = nn_service.recommend(
+    nn_recs, staples_assumed = nn_service.recommend(
         ingredient_gaps=gaps,
         calendar=session["calendar_context"],
         preferences=session["preferences"],
@@ -203,6 +272,13 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
 
     session["nn_original_cart"] = list(nn_recs)  # immutable reference
     session["current_cart"] = [dict(item) for item in nn_recs]  # mutable working copy
+    session["staples_assumed"] = staples_assumed
+    logger.info(
+        "NN recommendation result: normalized=%r cart_items=%d staples=%d",
+        normalized_query,
+        len(nn_recs),
+        len(staples_assumed),
+    )
 
     # LLM Call 2: narrate cart
     cart_total = _compute_cart_total(nn_recs)
@@ -214,6 +290,7 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
         preferences=session["preferences"],
         budget=session["preferences"].get("budget_per_order", 80.0),
         cart_total=cart_total,
+        staples_assumed=staples_assumed,
     )
 
     session["stage"] = "cart_proposed"
@@ -222,8 +299,6 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
 
 
 def _compute_cart_total(cart: list) -> float:
-    """Compute the total estimated cost of the current cart."""
-    return sum(
-        item.get("estimated_price", 0) * item.get("quantity", 1)
-        for item in cart
-    )
+    """Compute the total estimated cost of the current cart.
+    estimated_price already accounts for quantity (set by the pricing engine)."""
+    return sum(item.get("estimated_price", 0) for item in cart)

@@ -2,6 +2,10 @@ from pydantic import BaseModel
 from typing import Optional
 
 
+class StartSessionRequest(BaseModel):
+    client_id: Optional[str] = None
+
+
 class StartSessionResponse(BaseModel):
     conversation_id: str
 
@@ -9,6 +13,11 @@ class StartSessionResponse(BaseModel):
 class ChatRequest(BaseModel):
     conversation_id: str
     message: str
+
+
+class PreferencesUpdate(BaseModel):
+    conversation_id: str
+    preferences: dict
 
 
 class ChatResponse(BaseModel):

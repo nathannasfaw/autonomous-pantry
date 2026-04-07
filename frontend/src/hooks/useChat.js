@@ -1,25 +1,44 @@
 import { useState, useEffect, useCallback } from 'react'
 
 const API_BASE = 'http://localhost:8000'
+const CLIENT_ID_KEY = 'autonomous-pantry-client-id'
+
+function getClientId() {
+  const existing = window.localStorage.getItem(CLIENT_ID_KEY)
+  if (existing) return existing
+
+  const created = crypto.randomUUID()
+  window.localStorage.setItem(CLIENT_ID_KEY, created)
+  return created
+}
 
 export function useChat() {
   const [conversationId, setConversationId] = useState(null)
   const [messages, setMessages] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [preferences, setPreferences] = useState(null)
 
   // Auto-start session on mount
   useEffect(() => {
     const startSession = async () => {
       try {
+        const clientId = getClientId()
         const response = await fetch(`${API_BASE}/chat/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ client_id: clientId }),
         })
         if (!response.ok) {
           throw new Error(`Failed to start session: ${response.status}`)
         }
         const data = await response.json()
         setConversationId(data.conversation_id)
+
+        // Load default preferences
+        const prefResp = await fetch(`${API_BASE}/chat/preferences/${data.conversation_id}`)
+        if (prefResp.ok) {
+          setPreferences(await prefResp.json())
+        }
       } catch (err) {
         console.error('Failed to start chat session:', err)
         setMessages([
@@ -105,5 +124,26 @@ export function useChat() {
     [conversationId]
   )
 
-  return { messages, isLoading, sendMessage, conversationId }
+  const updatePreferences = useCallback(
+    async (newPrefs) => {
+      if (!conversationId) return
+      // Optimistic update
+      setPreferences(prev => ({ ...prev, ...newPrefs }))
+      try {
+        await fetch(`${API_BASE}/chat/preferences`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversation_id: conversationId,
+            preferences: newPrefs,
+          }),
+        })
+      } catch (err) {
+        console.error('Failed to update preferences:', err)
+      }
+    },
+    [conversationId]
+  )
+
+  return { messages, isLoading, sendMessage, conversationId, preferences, updatePreferences }
 }

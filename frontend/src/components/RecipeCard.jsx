@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 const UtensilsIcon = ({ size = 15, className = '' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -7,16 +9,34 @@ const UtensilsIcon = ({ size = 15, className = '' }) => (
   </svg>
 )
 
-export default function RecipeCard({ recipe }) {
-  if (!recipe) return null
-  const { name, servings, prep_time, cook_time, ingredients = [], source_url } = recipe
-  const shown = ingredients.slice(0, 5)
-  const remaining = ingredients.length - 5
+function RecipeImage({ name, imageUrl }) {
+  const [failed, setFailed] = useState(false)
+  if (!imageUrl || failed) return null
 
   return (
-    <div className="card-entrance rounded-2xl overflow-hidden border border-gray-100 w-full max-w-sm"
-         style={{ boxShadow: 'var(--shadow-card)' }}>
-      {/* Gradient header */}
+    <div className="w-full h-40 overflow-hidden">
+      <img
+        src={imageUrl}
+        alt={name}
+        className="w-full h-full object-cover"
+        onError={() => setFailed(true)}
+      />
+    </div>
+  )
+}
+
+export default function RecipeCard({ recipe }) {
+  if (!recipe) return null
+  const { name, servings, prep_time, cook_time, ingredients = [], source_url, image_url } = recipe
+  const shown = ingredients.slice(0, 5)
+  const remaining = ingredients.length - 5
+  const hasImage = Boolean(image_url)
+
+  return (
+    <div className="card-entrance rounded-2xl overflow-hidden w-full"
+         style={{ boxShadow: 'var(--shadow-card)', border: '1px solid #3F4147' }}>
+      {hasImage && <RecipeImage name={name} imageUrl={image_url} />}
+
       <div className="px-4 py-3 flex items-center gap-2" style={{ background: 'var(--card-recipe-header)' }}>
         <UtensilsIcon size={15} className="text-white opacity-90" />
         <div>
@@ -28,18 +48,18 @@ export default function RecipeCard({ recipe }) {
       </div>
 
       {/* Body */}
-      <div className="bg-white px-4 py-3">
-        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+      <div className="px-4 py-3" style={{ background: 'var(--bg-card)' }}>
+        <div className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
           Ingredients ({ingredients.length})
         </div>
         <ul className="space-y-1">
           {shown.map((ing, i) => (
-            <li key={i} className="text-sm text-gray-700">
+            <li key={i} className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               · {ing.quantity} {ing.unit} {ing.item}
             </li>
           ))}
           {remaining > 0 && (
-            <li className="text-xs text-gray-400 italic">...and {remaining} more</li>
+            <li className="text-xs italic" style={{ color: 'var(--text-muted)' }}>...and {remaining} more</li>
           )}
         </ul>
         {source_url && (
@@ -47,7 +67,8 @@ export default function RecipeCard({ recipe }) {
             href={source_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block mt-3 text-sm text-purple-600 font-medium hover:underline"
+            className="inline-block mt-3 text-sm font-medium hover:underline"
+            style={{ color: '#5B9BD5' }}
           >
             View Full Recipe ↗
           </a>
