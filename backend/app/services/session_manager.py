@@ -5,20 +5,24 @@ Session manager: stores all conversation sessions in memory.
 import uuid
 import copy
 from app.data.seed_data import PANTRY, CALENDAR, PREFERENCES
+from app.services import pantry_store
 
 SESSIONS: dict = {}
 
 
-def create_session() -> str:
+def create_session(client_id: str | None = None) -> str:
     """Create a new session and return its ID."""
     session_id = str(uuid.uuid4())
+    resolved_client_id = client_id or session_id
+    pantry_state = pantry_store.seed_if_empty(resolved_client_id, copy.deepcopy(PANTRY))
     SESSIONS[session_id] = {
         "conversation_id": session_id,
+        "client_id": resolved_client_id,
         "messages": [],
         "stage": "idle",
         "recipe": None,
         "full_ingredient_list": [],
-        "pantry_state": copy.deepcopy(PANTRY),
+        "pantry_state": pantry_state,
         "ingredient_gaps": [],
         "current_cart": [],
         "nn_original_cart": [],

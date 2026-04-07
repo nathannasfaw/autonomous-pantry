@@ -10,30 +10,13 @@ const UtensilsIcon = ({ size = 15, className = '' }) => (
 )
 
 function RecipeImage({ name, imageUrl }) {
-  const [src, setSrc] = useState(imageUrl || null)
   const [failed, setFailed] = useState(false)
-
-  // If LLM image fails or wasn't provided, show a styled placeholder
-  if (failed || !src) {
-    return (
-      <div
-        className="w-full h-40 flex items-center justify-center"
-        style={{
-          background: 'linear-gradient(135deg, #0061A0 0%, #0D5E9D 60%, #1E1F22 100%)',
-        }}
-      >
-        <div className="text-center px-4">
-          <UtensilsIcon size={32} className="text-white/60 mx-auto mb-2" />
-          <p className="text-white/80 text-sm font-medium">{name}</p>
-        </div>
-      </div>
-    )
-  }
+  if (!imageUrl || failed) return null
 
   return (
     <div className="w-full h-40 overflow-hidden">
       <img
-        src={src}
+        src={imageUrl}
         alt={name}
         className="w-full h-full object-cover"
         onError={() => setFailed(true)}
@@ -47,14 +30,13 @@ export default function RecipeCard({ recipe }) {
   const { name, servings, prep_time, cook_time, ingredients = [], source_url, image_url } = recipe
   const shown = ingredients.slice(0, 5)
   const remaining = ingredients.length - 5
+  const hasImage = Boolean(image_url)
 
   return (
     <div className="card-entrance rounded-2xl overflow-hidden w-full"
          style={{ boxShadow: 'var(--shadow-card)', border: '1px solid #3F4147' }}>
-      {/* Image thumbnail */}
-      <RecipeImage name={name} imageUrl={image_url} />
+      {hasImage && <RecipeImage name={name} imageUrl={image_url} />}
 
-      {/* Gradient header */}
       <div className="px-4 py-3 flex items-center gap-2" style={{ background: 'var(--card-recipe-header)' }}>
         <UtensilsIcon size={15} className="text-white opacity-90" />
         <div>

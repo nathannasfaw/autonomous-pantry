@@ -6,7 +6,7 @@ import chefLogo from '../assets/logo.png'
 
 const SUGGESTIONS = ['Sushi', 'Pizza', 'Tacos', 'Pasta', 'Ramen']
 
-export default function ChatWindow({ messages, isLoading, sendMessage }) {
+export default function ChatWindow({ messages, isLoading, sendMessage, conversationId, onItemsAdded }) {
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export default function ChatWindow({ messages, isLoading, sendMessage }) {
           zIndex: 1,
         }}
       />
-      <div className="flex-1 overflow-y-auto pt-8 pb-36 px-6 relative" style={{ zIndex: 2 }}>
+      <div className="flex-1 overflow-y-auto pt-8 pb-6 px-6 relative" style={{ zIndex: 2 }}>
         <div className="max-w-4xl mx-auto space-y-5">
 
           {messages.length === 0 && !isLoading ? (
@@ -81,7 +81,7 @@ export default function ChatWindow({ messages, isLoading, sendMessage }) {
         </div>
       </div>
 
-      <InputBar onSend={sendMessage} isLoading={isLoading} />
+      <InputBar onSend={sendMessage} isLoading={isLoading} conversationId={conversationId} onItemsAdded={onItemsAdded} />
     </div>
   )
 }

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useChat } from './hooks/useChat'
+import { usePantry } from './hooks/usePantry'
 import ChatWindow from './components/ChatWindow'
 import PreferencesPanel from './components/PreferencesPanel'
+import PantryPanel from './components/PantryPanel'
 import chefLogo from './assets/logo.png'
 
 const PlusIcon = () => (
@@ -38,54 +40,68 @@ const SlidersIcon = () => (
 )
 
 export default function App() {
-  const { messages, isLoading, sendMessage, preferences, updatePreferences } = useChat()
+  const { messages, isLoading, sendMessage, conversationId, preferences, updatePreferences } = useChat()
+  const { items: pantryItems, loading: pantryLoading, fetchPantry, addItem, deleteItem, updateItem } = usePantry(conversationId)
   const [activeTab, setActiveTab] = useState('chat')
+
+  // Called when camera scan confirms items:
+  // 1. Switch to pantry tab to show the update
+  // 2. Refresh pantry list from the persistent backend store
+  // Chat remains untouched unless the user explicitly starts a conversation.
+  const handleItemsAdded = () => {
+    setActiveTab('pantry')
+    fetchPantry()
+  }
+
+  const navItem = (tab, Icon, label, badge) => (
+    <button
+      onClick={() => setActiveTab(tab)}
+      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors"
+      style={{
+        background: activeTab === tab ? '#3F4147' : 'transparent',
+        color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-secondary)',
+      }}
+    >
+      <Icon />
+      {label}
+      {badge != null && badge > 0 && (
+        <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full"
+          style={{ background: '#0061A0', color: '#fff' }}>
+          {badge}
+        </span>
+      )}
+    </button>
+  )
 
   return (
     <div className="h-screen flex" style={{ background: 'var(--bg-page)' }}>
-      {/* Sidebar */}
+
+      {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <aside
         className="w-60 flex flex-col flex-shrink-0 py-3"
         style={{ background: 'var(--bg-sidebar)', borderRight: '1px solid var(--sidebar-border)' }}
       >
         {/* Brand */}
-        <div className="px-4 pb-3 mb-1 flex items-center gap-2.5" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
+        <div className="px-4 pb-3 mb-1 flex items-center gap-2.5"
+          style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
           <img src={chefLogo} alt="Autonomous Pantry" className="w-7 h-7 rounded-lg object-cover" />
-          <span className="font-semibold text-sm leading-tight" style={{ color: 'var(--text-primary)' }}>Autonomous Pantry</span>
+          <span className="font-semibold text-sm leading-tight" style={{ color: 'var(--text-primary)' }}>
+            Autonomous Pantry
+          </span>
         </div>
 
         {/* Nav */}
         <nav className="flex-1 px-2 pt-2 space-y-0.5">
-          <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left hover:bg-[#3F4147]" style={{ color: 'var(--text-secondary)' }}>
-            <PlusIcon />
-            New Chat
-          </button>
           <button
-            onClick={() => setActiveTab('chat')}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors"
-            style={{
-              background: activeTab === 'chat' ? '#3F4147' : 'transparent',
-              color: activeTab === 'chat' ? 'var(--text-primary)' : 'var(--text-secondary)',
-            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left hover:bg-[#3F4147]"
+            style={{ color: 'var(--text-secondary)' }}
+            onClick={() => { setActiveTab('chat'); sendMessage && window.location.reload() }}
           >
-            <ChatIcon />
-            Chat
+            <PlusIcon /> New Chat
           </button>
-          <button
-            onClick={() => setActiveTab('preferences')}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors"
-            style={{
-              background: activeTab === 'preferences' ? '#3F4147' : 'transparent',
-              color: activeTab === 'preferences' ? 'var(--text-primary)' : 'var(--text-secondary)',
-            }}
-          >
-            <SlidersIcon />
-            Preferences
-          </button>
-          <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left hover:bg-[#3F4147]" style={{ color: 'var(--text-muted)' }}>
-            <BoxIcon />
-            Pantry
-          </button>
+          {navItem('chat', ChatIcon, 'Chat')}
+          {navItem('pantry', BoxIcon, 'Pantry', pantryItems.length)}
+          {navItem('preferences', SlidersIcon, 'Preferences')}
         </nav>
 
         {/* Footer */}
@@ -94,10 +110,25 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main content area */}
+      {/* ── Main ────────────────────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col overflow-hidden">
         {activeTab === 'chat' && (
-          <ChatWindow messages={messages} isLoading={isLoading} sendMessage={sendMessage} />
+          <ChatWindow
+            messages={messages}
+            isLoading={isLoading}
+            sendMessage={sendMessage}
+            conversationId={conversationId}
+            onItemsAdded={handleItemsAdded}
+          />
+        )}
+        {activeTab === 'pantry' && (
+          <PantryPanel
+            items={pantryItems}
+            loading={pantryLoading}
+            onAdd={addItem}
+            onDelete={deleteItem}
+            onUpdate={updateItem}
+          />
         )}
         {activeTab === 'preferences' && (
           <PreferencesPanel preferences={preferences} onUpdate={updatePreferences} />

@@ -2,6 +2,10 @@ from pydantic import BaseModel
 from typing import Optional
 
 
+class StartSessionRequest(BaseModel):
+    client_id: Optional[str] = None
+
+
 class StartSessionResponse(BaseModel):
     conversation_id: str
 
