@@ -450,12 +450,12 @@ Ingredient gaps: {json.dumps(gaps)}
 NN recommendations: {json.dumps(nn_recommendations)}
 User preferences: {json.dumps(preferences)}
 Budget: {budget}
-Cart total (exact, computed from item prices - use this number, do NOT estimate): ${cart_total:.2f}
+Cart total (exact, includes GA 4% sales tax + $4.99 delivery — use this number, do NOT estimate): ${cart_total:.2f}
 Staples assumed on hand (filtered from cart): {staples_str}
 
 Return JSON only:
 {{
-  "message": "Use markdown formatting. Keep it SHORT - 2-3 sentences max. Mention what key items they already have from their pantry. If staples were assumed on hand, briefly note them. Mention the total: ${cart_total:.2f}. Do NOT claim they already have everything unless the ingredient gaps list is empty and a valid recipe exists.",
+  "message": "Use markdown formatting. Keep it SHORT - 2-3 sentences max. Mention what key items they already have from their pantry. If staples were assumed on hand, briefly note them. Mention the total: ${cart_total:.2f} (which includes GA tax and delivery). Do NOT claim they already have everything unless the ingredient gaps list is empty and a valid recipe exists. Do NOT list every cart item individually — the user already sees those in a separate order card.",
   "cart_summary": "one line summary of total items and cost",
   "status": "cart_proposed"
 }}"""
@@ -466,13 +466,9 @@ Return JSON only:
         if parsed:
             return parsed
 
-        total = sum(
-            item.get("estimated_price", 0) * item.get("quantity", 1)
-            for item in nn_recommendations
-        )
         return {
-            "message": f"Here are the key items you already have, and I've identified {len(nn_recommendations)} items to add totaling ${total:.2f}.",
-            "cart_summary": f"{len(nn_recommendations)} items · ${total:.2f}",
+            "message": f"Here's what I recommend adding to your cart! I've found {len(nn_recommendations)} items totaling ${cart_total:.2f} (including GA tax and delivery).",
+            "cart_summary": f"{len(nn_recommendations)} items · ${cart_total:.2f}",
             "status": "cart_proposed",
         }
     except Exception as exc:

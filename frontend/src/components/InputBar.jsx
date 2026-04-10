@@ -56,7 +56,7 @@ export default function InputBar({ onSend, isLoading, conversationId, onItemsAdd
     <>
       <div className="px-6 pb-6 pt-3 flex-shrink-0"
         style={{ background: '#313338' }}>
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-3xl mx-auto">
           <div
             className="rounded-2xl overflow-hidden"
             style={{

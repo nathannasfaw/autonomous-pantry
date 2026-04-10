@@ -42,11 +42,26 @@ function OrderConfirmationCard({ orderDetails }) {
           </div>
         </div>
       </div>
-      <div className="px-4 py-3 space-y-1" style={{ background: 'var(--bg-card)' }}>
+      <div className="px-4 py-3 space-y-1.5" style={{ background: 'var(--bg-card)' }}>
         <div className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>{orderDetails?.order_id}</div>
         <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{orderDetails?.retailer}</div>
-        <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
-          {orderDetails?.items?.length} items · ${(orderDetails?.total || 0).toFixed(2)} total
+        <div className="text-xs space-y-0.5" style={{ color: 'var(--text-muted)' }}>
+          <div className="flex justify-between">
+            <span>{orderDetails?.items?.length} items</span>
+            <span>${(orderDetails?.subtotal || 0).toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>{orderDetails?.tax_label || 'GA Sales Tax (4%)'}</span>
+            <span>${(orderDetails?.tax || 0).toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Delivery Fee</span>
+            <span>${(orderDetails?.delivery_fee || 0).toFixed(2)}</span>
+          </div>
+        </div>
+        <div className="flex justify-between text-sm font-semibold pt-1" style={{ color: 'var(--text-primary)', borderTop: '1px solid #3F4147' }}>
+          <span>Total</span>
+          <span>${(orderDetails?.total || 0).toFixed(2)}</span>
         </div>
       </div>
     </div>
@@ -92,7 +107,7 @@ function TextBubble({ text }) {
 
 export default function MessageBubble({ message, onBuy }) {
   const { role, text, recipe, cart, orderConfirmed, orderDetails } = message
-  const hasCards = (recipe || (cart && cart.length > 0))
+  const hasCards = (recipe || (cart && cart.length > 0)) && !orderConfirmed
 
   if (role === 'user') {
     return (

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 
 const API_BASE = 'http://localhost:8000'
 const SCAN_INTERVAL_MS = 800
@@ -377,7 +378,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
   })
 
   /* ── render ──────────────────────────────────────────────────────────────── */
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 flex items-center justify-center z-50"
       style={{ background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)' }}
@@ -595,6 +596,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
       </div>
 
       <canvas ref={frameRef} className="hidden" />
-    </div>
+    </div>,
+    document.body
   )
 }

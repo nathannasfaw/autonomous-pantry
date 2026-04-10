@@ -36,18 +36,18 @@ export default function ChatWindow({ messages, isLoading, sendMessage, conversat
         }}
       />
       <div className="flex-1 overflow-y-auto pt-8 pb-6 px-6 relative" style={{ zIndex: 2 }}>
-        <div className="max-w-4xl mx-auto space-y-5">
+        <div className="max-w-3xl mx-auto space-y-5">
 
           {messages.length === 0 && !isLoading ? (
             <div className="flex flex-col items-center justify-center min-h-[65vh] text-center">
-              <div className="mb-6">
-                <img src={chefLogo} alt="Autonomous Pantry" className="w-16 h-16" />
+              <div className="mb-6 welcome-float welcome-float-1">
+                <img src={chefLogo} alt="Fridgy" className="w-16 h-16 rounded-2xl" />
               </div>
-              <h2 className="text-2xl font-semibold mb-1 tracking-tight" style={{ color: 'var(--text-primary)' }}>
+              <h2 className="text-2xl font-semibold mb-1 tracking-tight welcome-float welcome-float-2" style={{ color: 'var(--text-primary)' }}>
                 Hope the day's treating you well
               </h2>
-              <p className="text-sm mb-8" style={{ color: 'var(--text-muted)' }}>What would you like to cook today?</p>
-              <div className="flex flex-wrap gap-2 justify-center">
+              <p className="text-sm mb-8 welcome-float welcome-float-3" style={{ color: 'var(--text-muted)' }}>What would you like to cook today?</p>
+              <div className="flex flex-wrap gap-2 justify-center welcome-float welcome-float-4">
                 {SUGGESTIONS.map((label) => (
                   <button
                     key={label}
