@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ':*)",
+      "Bash(tasklist)",
+      "Bash(taskkill //F //PID 15808 //T)",
+      "Bash(taskkill //F //PID 25316 //T)",
+      "Bash(taskkill //F //PID 30408 //T)",
+      "Bash(gh auth:*)"
+    ]
+  }
+}
