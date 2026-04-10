@@ -95,7 +95,7 @@ export default function App() {
       </aside>
 
       {/* Main content area */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden" style={{ zoom: 1.2 }}>
         {activeTab === 'chat' && (
           <ChatWindow messages={messages} isLoading={isLoading} sendMessage={sendMessage} />
         )}

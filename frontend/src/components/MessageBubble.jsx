@@ -107,7 +107,7 @@ function TextBubble({ text }) {
 
 export default function MessageBubble({ message, onBuy }) {
   const { role, text, recipe, cart, pantryUsed, orderConfirmed, orderDetails } = message
-  const hasCards = (recipe || (cart && cart.length > 0))
+  const hasCards = (recipe || (cart && cart.length > 0 && !orderConfirmed))
 
   if (role === 'user') {
     return (
@@ -137,12 +137,12 @@ export default function MessageBubble({ message, onBuy }) {
         {/* Side-by-side: Cart (left) + Recipe (right) */}
         {hasCards && (
           <div className="card-entrance flex gap-3 flex-wrap lg:flex-nowrap">
-            {cart && cart.length > 0 && (
+            {cart && cart.length > 0 && !orderConfirmed && (
               <div className="flex-1 min-w-[240px]">
                 <CartCard cart={cart} pantryUsed={pantryUsed} onBuy={onBuy} />
               </div>
             )}
-            {recipe && (
+            {recipe && !orderConfirmed && (
               <div className="flex-1 min-w-[240px]">
                 <RecipeCard recipe={recipe} />
               </div>

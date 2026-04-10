@@ -40,14 +40,14 @@ export default function ChatWindow({ messages, isLoading, sendMessage }) {
 
           {messages.length === 0 && !isLoading ? (
             <div className="flex flex-col items-center justify-center min-h-[65vh] text-center">
-              <div className="mb-6">
+              <div className="mb-6 welcome-float welcome-float-1">
                 <img src={chefLogo} alt="Fridgy" className="w-16 h-16 rounded-2xl" />
               </div>
-              <h2 className="text-2xl font-semibold mb-1 tracking-tight" style={{ color: 'var(--text-primary)' }}>
+              <h2 className="text-2xl font-semibold mb-1 tracking-tight welcome-float welcome-float-2" style={{ color: 'var(--text-primary)' }}>
                 Hope the day's treating you well
               </h2>
-              <p className="text-sm mb-8" style={{ color: 'var(--text-muted)' }}>What would you like to cook today?</p>
-              <div className="flex flex-wrap gap-2 justify-center">
+              <p className="text-sm mb-8 welcome-float welcome-float-3" style={{ color: 'var(--text-muted)' }}>What would you like to cook today?</p>
+              <div className="flex flex-wrap gap-2 justify-center welcome-float welcome-float-4">
                 {SUGGESTIONS.map((label) => (
                   <button
                     key={label}
