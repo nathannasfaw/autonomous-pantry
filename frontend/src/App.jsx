@@ -50,8 +50,8 @@ export default function App() {
       >
         {/* Brand */}
         <div className="px-4 pb-3 mb-1 flex items-center gap-2.5" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
-          <img src={chefLogo} alt="Autonomous Pantry" className="w-7 h-7 rounded-lg object-cover" />
-          <span className="font-semibold text-sm leading-tight" style={{ color: 'var(--text-primary)' }}>Autonomous Pantry</span>
+          <img src={chefLogo} alt="Fridgy" className="w-7 h-7 rounded-lg object-cover" />
+          <span className="font-semibold text-sm leading-tight" style={{ color: 'var(--text-primary)' }}>Fridgy</span>
         </div>
 
         {/* Nav */}

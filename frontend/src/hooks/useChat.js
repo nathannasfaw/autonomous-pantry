@@ -85,6 +85,7 @@ export function useChat() {
           text: data.message,
           recipe: data.recipe || null,
           cart: data.cart || null,
+          pantryUsed: data.pantry_used || null,
           stage: data.stage,
           orderConfirmed: data.order_confirmed || false,
           orderDetails: data.order_details || null,

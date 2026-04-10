@@ -4,3 +4,4 @@ anthropic
 torch
 pydantic
 python-dotenv
+openpyxl

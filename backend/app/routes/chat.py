@@ -80,6 +80,7 @@ async def send_message(request: ChatRequest):
             message=agent_message,
             recipe=session["recipe"],
             cart=session["current_cart"],
+            pantry_used=session.get("pantry_used"),
             stage=session["stage"],
         )
 
@@ -113,11 +114,11 @@ async def send_message(request: ChatRequest):
             cart_diff = result.get("cart_diff", [])
             session_manager.apply_cart_diff(session, cart_diff)
 
-            # Budget validation
-            cart_total = _compute_cart_total(session["current_cart"])
+            # Budget validation (check subtotal against budget, not tax/delivery)
+            cart_subtotal = _compute_cart_subtotal(session["current_cart"])
             budget = session["preferences"].get("budget_per_order", 80.0)
-            if cart_total > budget:
-                agent_message += f"\n\nHeads up: your cart total is ${cart_total:.2f}, which is over your ${budget:.2f} budget."
+            if cart_subtotal > budget:
+                agent_message += f"\n\nHeads up: your item subtotal is ${cart_subtotal:.2f}, which is over your ${budget:.2f} budget."
 
             session["stage"] = "negotiating"
 
@@ -139,6 +140,7 @@ async def send_message(request: ChatRequest):
             message=agent_message,
             recipe=session.get("recipe"),
             cart=session["current_cart"] if session["current_cart"] else None,
+            pantry_used=session.get("pantry_used"),
             stage=session["stage"],
             order_confirmed=order_confirmed,
             order_details=order_details,
@@ -207,11 +209,12 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
     session["full_ingredient_list"] = recipe.get("ingredients", [])
 
     # Compute ingredient gaps
-    gaps = gap_analysis.compute_gaps(
+    gaps, pantry_used = gap_analysis.compute_gaps(
         recipe_ingredients=session["full_ingredient_list"],
         pantry=session["pantry_state"],
     )
     session["ingredient_gaps"] = gaps
+    session["pantry_used"] = pantry_used
 
     # Run NN recommendations
     nn_recs, staples_assumed = nn_service.recommend(
@@ -242,7 +245,18 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
     return agent_message, recipe_result
 
 
+GEORGIA_STATE_TAX_RATE = 0.04
+DELIVERY_FEE = 7.99
+
+
+def _compute_cart_subtotal(cart: list) -> float:
+    """Sum of item prices only (no tax/delivery)."""
+    return round(sum(item.get("estimated_price", 0) for item in cart), 2)
+
+
 def _compute_cart_total(cart: list) -> float:
-    """Compute the total estimated cost of the current cart.
-    estimated_price already accounts for quantity (set by the pricing engine)."""
-    return sum(item.get("estimated_price", 0) for item in cart)
+    """All-in total: subtotal + GA tax + delivery fee.
+    Matches what instacart_stub.place_order returns."""
+    subtotal = _compute_cart_subtotal(cart)
+    tax = round(subtotal * GEORGIA_STATE_TAX_RATE, 2)
+    return round(subtotal + tax + DELIVERY_FEE, 2)

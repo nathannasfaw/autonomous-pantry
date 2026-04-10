@@ -21,6 +21,7 @@ class ChatResponse(BaseModel):
     message: str
     recipe: Optional[dict] = None
     cart: Optional[list] = None
+    pantry_used: Optional[list] = None
     stage: str
     order_confirmed: bool = False
     order_details: Optional[dict] = None

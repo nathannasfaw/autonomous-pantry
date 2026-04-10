@@ -13,6 +13,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
+from app.data import pricing_db
+
 logger = logging.getLogger(__name__)
 
 WEIGHTS_PATH = os.path.join(os.path.dirname(__file__), "nn_weights.pth")
@@ -290,56 +292,64 @@ def _is_spice(item_name: str, unit: str) -> bool:
     return False
 
 
-def _get_price(item_name: str, quantity: float = 1.0, unit: str = "") -> float:
+def _get_price(item_name: str, quantity: float = 1.0, unit: str = "",
+               quality_priority: float = 0.5,
+               preferred_organic: bool = True) -> tuple[float, str | None, str | None]:
     """
-    Category-aware price estimation.
-    Returns the total price for the given quantity, not per-unit.
+    Category-aware price estimation using the pricing spreadsheet.
+    Returns (price, brand, store) tuple.
+    brand/store are None when using hardcoded fallback.
     """
     normalized = item_name.lower().strip()
     unit_lower = unit.lower().strip()
 
     # Zero-cost staples
     if normalized in ZERO_COST_STAPLES:
-        return 0.00
+        return 0.00, None, None
 
-    # Spices & dried herbs: price by measured quantity
+    # Spices & dried herbs: price by measured quantity (not in spreadsheet)
     if _is_spice(normalized, unit_lower):
         if unit_lower in ("pinch", "dash", "to taste", "sprinkle"):
-            return round(0.05 * max(quantity, 1), 2)
+            return round(0.05 * max(quantity, 1), 2), None, None
         elif unit_lower in ("tsp", "teaspoon", "teaspoons"):
-            return round(SPICE_PRICE_PER_TSP * quantity, 2)
+            return round(SPICE_PRICE_PER_TSP * quantity, 2), None, None
         elif unit_lower in ("tbsp", "tablespoon", "tablespoons"):
-            return round(SPICE_PRICE_PER_TSP * 3 * quantity, 2)  # 1 tbsp = 3 tsp
+            return round(SPICE_PRICE_PER_TSP * 3 * quantity, 2), None, None
         else:
-            # Whole jar / unspecified — return jar price
-            return 3.99
+            return 3.99, None, None
+
+    # Try spreadsheet lookup first
+    db_result = pricing_db.lookup(item_name, quality_priority=quality_priority,
+                                  preferred_organic=preferred_organic)
+    if db_result:
+        return db_result["price"], db_result["brand"], db_result["store"]
 
     # Baking basics: cheap per recipe quantity
     if normalized in BAKING_BASICS:
         price_per = BAKING_PRICE_PER_UNIT.get(unit_lower, 0.35)
-        return round(price_per * quantity, 2)
+        return round(price_per * quantity, 2), None, None
 
-    # Exact match in price table
+    # Hardcoded fallback: exact match
     if normalized in PRICE_PER_ITEM:
-        return PRICE_PER_ITEM[normalized]
+        return PRICE_PER_ITEM[normalized], None, None
 
     # Partial match
     for key, price in PRICE_PER_ITEM.items():
         if key in normalized or normalized in key:
-            return price
+            return price, None, None
 
     # Category fallback based on unit
     if unit_lower in ("lb", "lbs", "pound", "pounds"):
-        return round(4.99 * quantity, 2)  # generic per-lb
+        return round(4.99 * quantity, 2), None, None
     elif unit_lower in ("oz", "ounce", "ounces"):
-        return round(0.50 * quantity, 2)  # generic per-oz
+        return round(0.50 * quantity, 2), None, None
     elif unit_lower in ("cup", "cups"):
-        return round(1.50 * quantity, 2)
+        return round(1.50 * quantity, 2), None, None
     elif unit_lower in SMALL_UNITS:
-        return round(0.25 * quantity, 2)
+        return round(0.25 * quantity, 2), None, None
 
-    # Final fallback: modest generic price
-    return 2.99
+    # Final fallback
+    return 2.99, None, None
 
 
 def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> tuple[list[dict], list[str]]:
@@ -361,6 +371,7 @@ def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> tuple
     budget = float(preferences.get("budget_per_order", 80.0))
     disliked = [d.lower() for d in preferences.get("disliked_ingredients", [])]
     quality_priority = float(preferences.get("quality_priority", 0.5))
+    preferred_organic = bool(preferences.get("preferred_organic", True))
 
     tonight_guests = int(calendar.get("tonight_guests", 2))
     events = calendar.get("events_this_week", [])
@@ -406,10 +417,10 @@ def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> tuple
             if any(d in item_lower for d in disliked):
                 dietary_conflict = True
 
-            raw_price = _get_price(item_name, gap_qty, unit)
-            # Quality multiplier: 0.85x at full budget-mode, 1.15x at full quality-mode
-            quality_mult = 0.85 + (quality_priority * 0.30)
-            estimated_price = round(raw_price * quality_mult, 2)
+            estimated_price, brand, store = _get_price(
+                item_name, gap_qty, unit, quality_priority=quality_priority,
+                preferred_organic=preferred_organic,
+            )
             budget_remaining_ratio = max(0.0, (budget - estimated_spend) / budget) if budget > 0 else 0.0
 
             # Historical reorder: simulate with a fixed seed based on item name
@@ -433,13 +444,17 @@ def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> tuple
             score = float(_model(feature_tensor).squeeze().item())
 
             if score >= 0.5:
-                results.append({
+                entry = {
                     "item": item_name,
                     "quantity": round(gap_qty, 2),
                     "unit": unit,
                     "score": round(score, 4),
                     "estimated_price": estimated_price,
-                })
+                }
+                if brand:
+                    entry["brand"] = brand
+                entry["store"] = store if store else "both"
+                results.append(entry)
                 estimated_spend += estimated_price
 
     # Sort by score descending

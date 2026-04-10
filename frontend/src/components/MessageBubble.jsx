@@ -42,11 +42,26 @@ function OrderConfirmationCard({ orderDetails }) {
           </div>
         </div>
       </div>
-      <div className="px-4 py-3 space-y-1" style={{ background: 'var(--bg-card)' }}>
+      <div className="px-4 py-3 space-y-1.5" style={{ background: 'var(--bg-card)' }}>
         <div className="font-mono text-sm" style={{ color: 'var(--text-secondary)' }}>{orderDetails?.order_id}</div>
         <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{orderDetails?.retailer}</div>
-        <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
-          {orderDetails?.items?.length} items · ${(orderDetails?.total || 0).toFixed(2)} total
+        <div className="text-xs space-y-0.5" style={{ color: 'var(--text-muted)' }}>
+          <div className="flex justify-between">
+            <span>{orderDetails?.items?.length} items</span>
+            <span>${(orderDetails?.subtotal || 0).toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>{orderDetails?.tax_label || 'Tax'}</span>
+            <span>${(orderDetails?.tax || 0).toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Delivery</span>
+            <span>${(orderDetails?.delivery_fee || 0).toFixed(2)}</span>
+          </div>
+        </div>
+        <div className="flex justify-between text-sm font-semibold pt-1" style={{ color: 'var(--text-primary)', borderTop: '1px solid #3F4147' }}>
+          <span>Total</span>
+          <span>${(orderDetails?.total || 0).toFixed(2)}</span>
         </div>
       </div>
     </div>
@@ -91,7 +106,7 @@ function TextBubble({ text }) {
 }
 
 export default function MessageBubble({ message, onBuy }) {
-  const { role, text, recipe, cart, orderConfirmed, orderDetails } = message
+  const { role, text, recipe, cart, pantryUsed, orderConfirmed, orderDetails } = message
   const hasCards = (recipe || (cart && cart.length > 0))
 
   if (role === 'user') {
@@ -124,7 +139,7 @@ export default function MessageBubble({ message, onBuy }) {
           <div className="card-entrance flex gap-3 flex-wrap lg:flex-nowrap">
             {cart && cart.length > 0 && (
               <div className="flex-1 min-w-[240px]">
-                <CartCard cart={cart} onBuy={onBuy} />
+                <CartCard cart={cart} pantryUsed={pantryUsed} onBuy={onBuy} />
               </div>
             )}
             {recipe && (

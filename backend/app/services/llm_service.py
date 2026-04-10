@@ -235,12 +235,12 @@ Ingredient gaps: {json.dumps(gaps)}
 NN recommendations: {json.dumps(nn_recommendations)}
 User preferences: {json.dumps(preferences)}
 Budget: {budget}
-Cart total (exact, computed from item prices — use this number, do NOT estimate): ${cart_total:.2f}
+Cart total (exact, includes GA 4% tax + $7.99 delivery — use this number, do NOT estimate): ${cart_total:.2f}
 Staples assumed on hand (filtered from cart): {staples_str}
 
 Return JSON only:
 {{
-  "message": "Use markdown formatting. Keep it SHORT — 2-3 sentences max. Mention what key items they already have from their pantry. If staples were assumed on hand, briefly note them (e.g. 'I'm assuming you have water and salt on hand'). Mention the total: ${cart_total:.2f}. Do NOT list every cart item individually — the user already sees those in a separate order card. Be warm and concise.",
+  "message": "Use markdown formatting. Keep it SHORT — 2-3 sentences max. Mention what key items they already have from their pantry. If staples were assumed on hand, briefly note them (e.g. 'I'm assuming you have water and salt on hand'). Mention the total: ${cart_total:.2f} (which includes GA tax and delivery). Do NOT list every cart item individually — the user already sees those in a separate order card. Be warm and concise.",
   "cart_summary": "one line summary of total items and cost",
   "status": "cart_proposed"
 }}"""
@@ -251,13 +251,9 @@ Return JSON only:
         if parsed:
             return parsed
         else:
-            total = sum(
-                item.get("estimated_price", 0) * item.get("quantity", 1)
-                for item in nn_recommendations
-            )
             return {
-                "message": f"Here's what I recommend adding to your cart based on your recipe and pantry! I've found {len(nn_recommendations)} items totaling about ${total:.2f}.",
-                "cart_summary": f"{len(nn_recommendations)} items · ${total:.2f}",
+                "message": f"Here's what I recommend adding to your cart based on your recipe and pantry! I've found {len(nn_recommendations)} items totaling about ${cart_total:.2f} (including GA tax and delivery).",
+                "cart_summary": f"{len(nn_recommendations)} items · ${cart_total:.2f}",
                 "status": "cart_proposed",
             }
     except Exception as e:

@@ -44,14 +44,18 @@ def _find_pantry_item(ingredient_name: str, pantry: list) -> dict | None:
     return None
 
 
-def compute_gaps(recipe_ingredients: list, pantry: list) -> list:
+def compute_gaps(recipe_ingredients: list, pantry: list) -> tuple[list, list]:
     """
     For each recipe ingredient, compute how much is missing from pantry.
     Apply 0.7x buffer to any pantry item with confidence < 0.75.
-    Return list of gaps: [{"item": str, "required": float, "available": float, "gap": float, "unit": str}]
-    Items fully covered by pantry are excluded from the return list.
+
+    Returns:
+        (gaps, pantry_used)
+        gaps: [{"item": str, "required": float, "available": float, "gap": float, "unit": str}]
+        pantry_used: [{"item": str, "quantity": float, "unit": str}] — ingredients fully covered by pantry
     """
     gaps = []
+    pantry_used = []
 
     for ingredient in recipe_ingredients:
         item_name = ingredient.get("item", "")
@@ -76,7 +80,6 @@ def compute_gaps(recipe_ingredients: list, pantry: list) -> list:
 
         gap = max(0.0, required - available)
 
-        # Only include items where there is an actual gap
         if gap > 0.0:
             gaps.append({
                 "item": item_name,
@@ -85,5 +88,12 @@ def compute_gaps(recipe_ingredients: list, pantry: list) -> list:
                 "gap": gap,
                 "unit": unit,
             })
+        elif pantry_match is not None:
+            # Fully covered by pantry — track it
+            pantry_used.append({
+                "item": pantry_match["item"],
+                "quantity": required if required > 0 else raw_available,
+                "unit": unit or pantry_match.get("unit", ""),
+            })
 
-    return gaps
+    return gaps, pantry_used
