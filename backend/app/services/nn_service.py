@@ -4,6 +4,7 @@ Trains on synthetic data and saves/loads weights from nn_weights.pth.
 """
 
 import os
+import re
 import random
 import math
 import logging
@@ -21,6 +22,45 @@ INPUT_SIZE = 50
 HIDDEN1 = 64
 HIDDEN2 = 32
 OUTPUT_SIZE = 1  # single score per item
+
+# ---------------------------------------------------------------------------
+# Produce items: fresh fruits, vegetables, and herbs that should carry an
+# "organic" prefix when the user has preferred_organic=True.
+# ---------------------------------------------------------------------------
+PRODUCE_KEYWORDS: set[str] = {
+    # Vegetables
+    "avocado", "cucumber", "tomato", "tomatoes", "onion", "red onion",
+    "garlic", "ginger", "lemon", "lime", "cilantro", "parsley",
+    "green onion", "scallion", "mushroom", "mushrooms", "spinach", "broccoli",
+    "bell pepper", "jalapeño", "jalapeno", "serrano", "lettuce", "cabbage",
+    "carrot", "carrots", "celery", "potato", "potatoes", "sweet potato",
+    "corn", "zucchini", "eggplant", "kale", "arugula", "chard", "beet",
+    "radish", "turnip", "squash", "pumpkin", "asparagus", "artichoke",
+    "leek", "shallot", "fennel", "bok choy", "napa cabbage",
+    "snap peas", "snow peas", "green beans", "edamame", "bean sprouts",
+    # Fruits
+    "apple", "banana", "orange", "strawberry", "blueberry", "raspberry",
+    "peach", "pear", "mango", "pineapple", "watermelon", "grape",
+    "cherry", "apricot", "plum", "pomegranate", "kiwi", "papaya",
+    # Fresh herbs (not dried spices — those stay as-is)
+    "basil", "mint", "dill", "chives", "thyme", "rosemary", "sage",
+}
+
+
+def _maybe_organic(item_name: str, prefer_organic: bool) -> str:
+    """
+    Return 'organic <item>' when the user prefers organic AND the item is produce.
+    Avoids double-prefixing items already labelled 'organic'.
+    """
+    if not prefer_organic:
+        return item_name
+    normalized = item_name.lower().strip()
+    if normalized.startswith("organic"):
+        return item_name
+    if any(kw in normalized for kw in PRODUCE_KEYWORDS):
+        return f"organic {item_name}"
+    return item_name
+
 
 # ---------------------------------------------------------------------------
 # Zero-cost staples: items most kitchens already have. Filtered from cart
@@ -111,6 +151,182 @@ BAKING_PRICE_PER_UNIT = {"tsp": 0.10, "tbsp": 0.25, "cup": 0.60, "packet": 0.75}
 # Units that indicate small/measured quantities (spice-scale)
 SMALL_UNITS = {"tsp", "teaspoon", "teaspoons", "tbsp", "tablespoon", "tablespoons",
                "pinch", "dash", "to taste", "sprinkle"}
+
+# ---------------------------------------------------------------------------
+# Dietary flag → ingredient keyword mapping.
+#
+# Each key is a dietary flag (lowercase) from the frontend.
+# Each value is a set of ingredient keywords that conflict with that flag.
+#
+# Includes hidden/processed ingredients (surimi, gelatin, whey, anchovy paste,
+# worcestershire, etc.) to reduce false negatives.
+#
+# Matching strategy (see _has_dietary_conflict):
+#   - Single-word keywords → whole-word regex (\b...\b) to avoid "ham" matching "chamomile"
+#   - Multi-word keywords  → phrase substring match
+#   - Custom "no X" flags  → substring fallback (user-typed, may be partial)
+# ---------------------------------------------------------------------------
+DIETARY_CONFLICT_MAP: dict[str, set[str]] = {
+    "vegan": {
+        # Meats & poultry
+        "meat", "beef", "pork", "chicken", "turkey", "lamb", "duck",
+        "bison", "venison", "veal", "goat",
+        # Processed meats
+        "bacon", "ham", "sausage", "prosciutto", "lard", "pancetta",
+        "pepperoni", "salami", "chorizo", "mortadella", "hot dog",
+        # Seafood
+        "shrimp", "salmon", "tuna", "cod", "fish", "seafood", "anchovy",
+        "lobster", "crab", "clam", "oyster", "mussel", "scallop",
+        "prawn", "squid", "octopus", "surimi",
+        # Hidden seafood
+        "fish sauce", "oyster sauce", "anchovy paste", "worcestershire",
+        # Dairy
+        "milk", "cheese", "butter", "cream", "yogurt", "mozzarella",
+        "parmesan", "cheddar", "ricotta", "brie", "feta", "ghee",
+        "whey", "casein", "lactose", "cream cheese", "half and half",
+        "heavy cream", "sour cream",
+        # Eggs & bee products
+        "egg", "eggs", "honey", "beeswax", "albumen",
+        # Animal-derived additives
+        "gelatin", "lard", "rennet",
+    },
+    "vegetarian": {
+        # Meats & poultry
+        "meat", "beef", "pork", "chicken", "turkey", "lamb", "duck",
+        "bison", "venison", "veal", "goat",
+        # Processed meats
+        "bacon", "ham", "sausage", "prosciutto", "lard", "pancetta",
+        "pepperoni", "salami", "chorizo", "mortadella", "hot dog",
+        # Seafood
+        "shrimp", "salmon", "tuna", "cod", "fish", "seafood", "anchovy",
+        "lobster", "crab", "clam", "oyster", "mussel", "scallop",
+        "prawn", "squid", "octopus", "surimi",
+        # Hidden seafood (common recipe ingredients)
+        "fish sauce", "oyster sauce", "anchovy paste", "worcestershire",
+        "dashi",  # traditional dashi contains fish flakes
+    },
+    "gluten-free": {
+        # Direct gluten sources
+        "bread", "pasta", "flour", "wheat", "barley", "rye", "spelt",
+        "noodles", "breadcrumbs", "panko", "tortillas", "pita",
+        "couscous", "semolina", "bulgur", "farro", "seitan",
+        "udon", "ramen", "wonton", "dumpling wrapper", "malt",
+        # Soy sauce contains wheat — flag it
+        "soy sauce",
+    },
+    "dairy-free": {
+        "milk", "cheese", "butter", "cream", "yogurt", "mozzarella",
+        "parmesan", "cheddar", "ricotta", "brie", "feta", "ghee",
+        "whey", "casein", "lactose", "cream cheese", "half and half",
+        "heavy cream", "sour cream", "queso",
+    },
+    "no shellfish": {
+        "shrimp", "lobster", "crab", "clam", "oyster", "mussel",
+        "scallop", "prawn", "crawfish", "crayfish", "squid", "octopus",
+        "abalone",
+    },
+    "no pork": {
+        "pork", "bacon", "ham", "prosciutto", "lard", "pancetta",
+        "sausage", "pepperoni", "salami", "chorizo", "mortadella",
+        "pork belly", "pork chop", "pork loin", "pork rib",
+    },
+    "no red meat": {
+        "beef", "pork", "lamb", "steak", "bison", "veal", "venison",
+        "ground beef", "pork chop",
+    },
+    "nut-free": {
+        "peanut", "almond", "walnut", "cashew", "pecan", "pistachio",
+        "hazelnut", "macadamia", "pine nut", "tahini", "nut butter",
+        "peanut butter", "almond flour", "almond milk",
+    },
+    "keto": {
+        "bread", "pasta", "flour", "rice", "potato", "sugar", "tortillas",
+        "noodles", "corn", "oats", "cereal", "honey", "maple syrup",
+        "banana", "mango", "pineapple", "apple juice", "orange juice",
+        "beans", "lentils", "chickpeas", "quinoa",
+    },
+    "low-carb": {
+        "bread", "pasta", "rice", "potato", "tortillas", "noodles", "corn",
+        "oats", "cereal", "beans", "lentils",
+    },
+    "halal": {
+        "pork", "bacon", "ham", "lard", "pancetta", "gelatin",
+        "wine", "beer", "alcohol",
+    },
+    "kosher": {
+        "pork", "bacon", "ham", "shrimp", "lobster", "crab",
+        "clam", "oyster", "mussel", "scallop",
+    },
+}
+
+
+def _normalize_ingredient(name: str) -> str:
+    """
+    Prepare an ingredient name for dietary conflict matching.
+
+    Strips parenthetical notes first so clarifications like
+    '(for flax egg)' or '(optional)' don't contaminate the match —
+    the ingredient is the text BEFORE the parenthesis.
+    """
+    # Remove all parenthetical content, e.g. "water (for flax egg)" → "water"
+    name = re.sub(r"\([^)]*\)", "", name)
+    return re.sub(r"[^a-z0-9 ]", " ", name.lower()).strip()
+
+
+def _has_dietary_conflict(item_name: str, dietary_flags: list[str]) -> bool:
+    """
+    Check if an item conflicts with any dietary flag using DIETARY_CONFLICT_MAP.
+
+    Matching rules:
+    - Single-word keywords: whole-word regex (\b...\b) — prevents "ham" matching "chamomile"
+    - Multi-word keywords: phrase substring — "fish sauce" in "fish sauce bottle"
+    - Custom "no X" flags not in map: simple substring fallback
+    """
+    normalized = _normalize_ingredient(item_name)
+
+    for flag in dietary_flags:
+        conflict_keywords = DIETARY_CONFLICT_MAP.get(flag, set())
+        for kw in conflict_keywords:
+            kw_norm = _normalize_ingredient(kw)
+            if " " in kw_norm:
+                # Multi-word phrase: substring match
+                if kw_norm in normalized:
+                    return True
+            else:
+                # Single word: whole-word boundary match
+                if re.search(r"\b" + re.escape(kw_norm) + r"\b", normalized):
+                    return True
+
+        # Fallback for custom "no X" flags (user-typed free text) not in the map
+        if flag not in DIETARY_CONFLICT_MAP and flag.startswith("no "):
+            ingredient = flag[3:].strip()
+            if ingredient and ingredient in normalized:
+                return True
+
+    return False
+
+
+def check_recipe_dietary_violations(recipe: dict, dietary_flags: list[str]) -> list[str]:
+    """
+    Post-generation validation: inspect every ingredient in a recipe dict
+    and return the names of any that violate the user's hard dietary constraints.
+
+    Args:
+        recipe: recipe dict with an "ingredients" list of {"item": str, ...}
+        dietary_flags: list of lowercase flag strings (e.g. ["vegan", "gluten-free"])
+
+    Returns:
+        List of violating ingredient names (empty = recipe is clean).
+    """
+    if not dietary_flags:
+        return []
+    violations = []
+    for ing in recipe.get("ingredients", []):
+        item_name = ing.get("item", "")
+        if item_name and _has_dietary_conflict(item_name, dietary_flags):
+            violations.append(item_name)
+    return violations
+
 
 _model = None
 
@@ -342,10 +558,24 @@ def _get_price(item_name: str, quantity: float = 1.0, unit: str = "") -> float:
     return 2.99
 
 
-def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> tuple[list[dict], list[str]]:
+def recommend(
+    ingredient_gaps: list,
+    calendar: dict,
+    preferences: dict,
+    recipe_cuisine: str | None = None,
+) -> tuple[list[dict], list[str]]:
     """
     Score each ingredient gap with the NN and return items with score >= 0.5,
     sorted by score descending. Zero-cost staples are separated out.
+
+    Args:
+        ingredient_gaps: list of gap dicts from gap_analysis.compute_gaps()
+        calendar: calendar context dict
+        preferences: user preferences dict
+        recipe_cuisine: cuisine type of the current recipe (e.g. "Japanese").
+            When provided, the user's cuisine_weights[recipe_cuisine] is used
+            directly as the NN cuisine_score feature, giving accurate per-recipe
+            personalization. Falls back to the average weight if unrecognised.
 
     Returns:
         (cart_items, staples_assumed)
@@ -358,16 +588,40 @@ def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> tuple
 
     dietary_flags = [f.lower() for f in preferences.get("dietary_flags", [])]
     cuisine_weights = preferences.get("cuisine_weights", {})
-    budget = float(preferences.get("budget_per_order", 80.0))
     disliked = [d.lower() for d in preferences.get("disliked_ingredients", [])]
     quality_priority = float(preferences.get("quality_priority", 0.5))
+    prefer_organic = bool(preferences.get("preferred_organic", False))
+
+    # Effective budget: the stricter of the total order cap and per-person × servings
+    budget_per_order = float(preferences.get("budget_per_order", 80.0))
+    budget_per_person = float(preferences.get("budget_per_person", 40.0))
+    serving_size = int(preferences.get("serving_size", 2))
+    budget = min(budget_per_order, budget_per_person * serving_size)
 
     tonight_guests = int(calendar.get("tonight_guests", 2))
-    events = calendar.get("events_this_week", [])
 
-    # Derive cuisine score: average cuisine weight across events
-    cuisine_scores = list(cuisine_weights.values())
-    avg_cuisine_score = sum(cuisine_scores) / len(cuisine_scores) if cuisine_scores else 0.5
+    # Derive cuisine score:
+    # If the recipe's cuisine type is known, look it up directly (case-insensitive).
+    # This preserves the specificity of the user's cuisine preferences rather than
+    # averaging them all into a single number.
+    cuisine_score_values = list(cuisine_weights.values())
+    avg_cuisine_score = (
+        sum(cuisine_score_values) / len(cuisine_score_values)
+        if cuisine_score_values else 0.5
+    )
+    if recipe_cuisine:
+        recipe_cuisine_lower = recipe_cuisine.strip().lower()
+        matched_weight = next(
+            (v for k, v in cuisine_weights.items() if k.lower() == recipe_cuisine_lower),
+            None,
+        )
+        cuisine_score = matched_weight if matched_weight is not None else avg_cuisine_score
+        logger.debug(
+            "Cuisine score for %r: %.2f (explicit=%s)",
+            recipe_cuisine, cuisine_score, matched_weight is not None,
+        )
+    else:
+        cuisine_score = avg_cuisine_score
 
     # Day of week: use today's weekday (0=Mon)
     import datetime
@@ -394,17 +648,13 @@ def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> tuple
             # Gap ratio: how much is missing relative to required
             gap_ratio = gap_qty / required if required > 0 else 1.0
 
-            # Check dietary conflict
+            # Hard-skip items that conflict with dietary flags or disliked ingredients.
+            # Dietary restrictions are non-negotiable constraints, not NN features.
             item_lower = item_name.lower()
-            dietary_conflict = False
-            for flag in dietary_flags:
-                # "no shellfish" → check if item contains shellfish keywords
-                flag_ingredient = flag.replace("no ", "").strip()
-                if flag_ingredient in item_lower:
-                    dietary_conflict = True
-                    break
-            if any(d in item_lower for d in disliked):
-                dietary_conflict = True
+            if _has_dietary_conflict(item_name, dietary_flags) or any(d in item_lower for d in disliked):
+                continue
+
+            dietary_conflict = False  # passed as NN feature; always False here after hard filter
 
             raw_price = _get_price(item_name, gap_qty, unit)
             # Quality multiplier: 0.85x at full budget-mode, 1.15x at full quality-mode
@@ -422,7 +672,7 @@ def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> tuple
                 gap_ratio=gap_ratio,
                 guest_count=tonight_guests,
                 day_of_week=day_of_week,
-                cuisine_score=avg_cuisine_score,
+                cuisine_score=cuisine_score,
                 budget_remaining_ratio=budget_remaining_ratio,
                 dietary_conflict=dietary_conflict,
                 confidence=confidence,
@@ -434,7 +684,7 @@ def recommend(ingredient_gaps: list, calendar: dict, preferences: dict) -> tuple
 
             if score >= 0.5:
                 results.append({
-                    "item": item_name,
+                    "item": _maybe_organic(item_name, prefer_organic),
                     "quantity": round(gap_qty, 2),
                     "unit": unit,
                     "score": round(score, 4),

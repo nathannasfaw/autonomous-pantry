@@ -36,6 +36,15 @@ def initialize_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_pantry_client_id ON pantry_items(client_id)"
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_preferences (
+                client_id TEXT PRIMARY KEY,
+                prefs_json TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
         conn.commit()
 
 
@@ -132,6 +141,39 @@ def upsert_items(client_id: str, items: list[dict]) -> list[dict]:
         )
 
     return get_items(client_id)
+
+
+def save_preferences(client_id: str, prefs: dict) -> None:
+    """Persist a user's preferences keyed by client_id. Overwrites any existing record."""
+    import json
+    now = _now_iso()
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO user_preferences (client_id, prefs_json, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(client_id) DO UPDATE SET
+                prefs_json = excluded.prefs_json,
+                updated_at = excluded.updated_at
+            """,
+            (client_id, json.dumps(prefs), now),
+        )
+
+
+def load_preferences(client_id: str) -> dict | None:
+    """Load persisted preferences for a client_id. Returns None if not found."""
+    import json
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT prefs_json FROM user_preferences WHERE client_id = ?",
+            (client_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    try:
+        return json.loads(row["prefs_json"])
+    except (json.JSONDecodeError, KeyError):
+        return None
 
 
 def seed_if_empty(client_id: str, items: list[dict]) -> list[dict]:

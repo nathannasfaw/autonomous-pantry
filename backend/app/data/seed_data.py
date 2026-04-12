@@ -24,7 +24,7 @@ PREFERENCES = {
     "dietary_flags": [],
     "cuisine_weights": {"Japanese": 0.85, "Italian": 0.70, "Mexican": 0.55},
     "budget_per_order": 80.0,
-    "budget_per_person": 20.0,
+    "budget_per_person": 40.0,
     "quality_priority": 0.5,       # 0 = price-focused, 1 = quality-focused
     "preferred_organic": False,
     "disliked_ingredients": [],

@@ -27,19 +27,37 @@ RECIPE_REQUEST_PATTERNS = [
     r"\brecipes\b",
     r"\bmeal ideas?\b",
     r"\bsuggest(?: me)?\b",
-    r"\bwhat can i make\b",
-    r"\bwhat should i cook\b",
-    r"\bwhat can i cook\b",
-    r"\bi want to make\b",
-    r"\bi want to cook\b",
+    # "what can/should I make/cook/eat" — all combinations
+    r"\bwhat (?:can|should) (?:i|we) (?:make|cook|eat)\b",
+    r"\bwhat(?:'s| is) for (?:dinner|lunch|breakfast|supper)\b",
+    r"\bi want to (?:make|cook)\b",
     r"\bfind me\b.*\brecipe\b",
-    r"\bgive me\b.*\brecipe\b",
-    r"\bdinner ideas?\b",
-    r"\blunch ideas?\b",
-    r"\bbreakfast ideas?\b",
+    r"\bgive me\b.*\b(?:recipe|ideas?|suggestions?)\b",
+    r"\b(?:dinner|lunch|breakfast|supper|meal) ideas?\b",
     r"\bmeal suggestions?\b",
+    r"\bhelp (?:me )?(?:figure out|decide|pick|choose)\b.*\b(?:dinner|lunch|breakfast|meal|eat|cook|make)\b",
     r"\bcook with\b",
     r"\bmake with\b",
+    r"\bwhat (?:should|can) (?:i|we) (?:have|eat|get)\b",
+    r"\bneed (?:dinner|lunch|breakfast|meal|recipe|ideas?)\b",
+]
+
+# Phrases that signal the user wants to abandon the current recipe/cart and
+# explore alternatives, even while in cart_proposed / negotiating stage.
+# Detected in chat.py BEFORE call_llm_conversation so the reset path fires
+# reliably rather than depending on the LLM's intent classification.
+CONTEXT_SWITCH_PATTERNS = [
+    r"\bwhat else\b",
+    r"\bsomething else\b",
+    r"\bother (?:options?|ideas?|dishes?|meals?|recipes?)\b",
+    r"\balternatives?\b",
+    r"\bdifferent (?:dish|meal|recipe|idea|option)\b",
+    r"\bstart over\b",
+    r"\btry (?:something|a) different\b",
+    r"\bchange (?:the )?(?:dish|recipe|meal|plan)\b",
+    r"\bactually\b.{0,30}\b(?:make|cook|want|try)\b",
+    r"\bnever mind\b",
+    r"\bforget (?:it|the|that)\b",
 ]
 
 SCAN_UPDATE_PATTERNS = [
@@ -112,6 +130,14 @@ def is_explicit_recipe_request(message: str) -> bool:
     return any(re.search(pattern, normalized) for pattern in RECIPE_REQUEST_PATTERNS)
 
 
+def is_context_switch(message: str) -> bool:
+    """Return True when the user signals they want to abandon the current recipe/cart
+    and explore alternatives. Used in cart_proposed/negotiating stage to trigger a
+    forced reset without waiting for the LLM to classify the intent."""
+    normalized = message.lower().strip()
+    return any(re.search(p, normalized) for p in CONTEXT_SWITCH_PATTERNS)
+
+
 def normalize_recipe_query(message: str) -> str:
     """
     Extract the likely dish name from a user request.
@@ -130,17 +156,140 @@ def normalize_recipe_query(message: str) -> str:
 
 def _is_specific_recipe_request(message: str) -> bool:
     lowered = message.lower()
-    open_ended_markers = [
-        "what can i make",
-        "what should i cook",
-        "what can i cook",
-        "meal ideas",
-        "dinner ideas",
-        "lunch ideas",
-        "breakfast ideas",
-        "suggest",
+    # Open-ended phrasings that should return a list of options, not a single recipe
+    open_ended_patterns = [
+        r"\bwhat (?:can|should) (?:i|we) (?:make|cook|eat|have)\b",
+        r"\bwhat(?:'s| is) for (?:dinner|lunch|breakfast|supper)\b",
+        r"\b(?:meal|dinner|lunch|breakfast|supper) ideas?\b",
+        r"\bmeal suggestions?\b",
+        r"\bsuggest\b",
+        r"\bneed (?:dinner|lunch|breakfast|meal|ideas?)\b",
+        r"\bhelp (?:me )?(?:figure out|decide|pick|choose)\b",
+        r"\bwhat (?:should|can) (?:i|we) (?:have|eat|get)\b",
     ]
-    return not any(marker in lowered for marker in open_ended_markers)
+    return not any(re.search(p, lowered) for p in open_ended_patterns)
+
+
+def compute_effective_budget(preferences: dict) -> float:
+    """
+    Compute the effective per-order grocery budget.
+
+    Uses the stricter of:
+    - budget_per_order: the user's total order cap
+    - budget_per_person × serving_size: the per-person cap scaled to servings
+
+    Both values are set independently in the frontend; this ensures BOTH
+    constraints are respected simultaneously.
+    """
+    budget_per_order = float(preferences.get("budget_per_order", 80.0))
+    budget_per_person = float(preferences.get("budget_per_person", 40.0))
+    serving_size = int(preferences.get("serving_size", 2))
+    return min(budget_per_order, budget_per_person * serving_size)
+
+
+def _build_preference_constraints(preferences: dict) -> str:
+    """
+    Convert the preferences dict into explicit, enumerated constraint paragraphs
+    that Claude must follow. Returns a ready-to-embed string for system prompts.
+    """
+    lines = []
+
+    # ── Dietary restrictions ──────────────────────────────────────────────────
+    dietary_flags = [f.lower().strip() for f in preferences.get("dietary_flags", [])]
+    if dietary_flags:
+        lines.append(f"HARD DIETARY CONSTRAINTS — NEVER violate: {', '.join(dietary_flags)}")
+        lines.append("Apply these rules to every ingredient in any recipe you suggest:")
+        flag_rules = {
+            "vegan": "No meat, poultry, seafood, dairy (milk/cheese/butter/cream/yogurt), eggs, or honey.",
+            "vegetarian": "No meat, poultry, or seafood. Dairy and eggs are fine.",
+            "gluten-free": "No wheat, barley, rye, regular pasta, bread, flour, or breadcrumbs.",
+            "dairy-free": "No milk, cheese, butter, cream, or yogurt.",
+            "no shellfish": "No shrimp, lobster, crab, clams, oysters, mussels, scallops, or prawns.",
+            "no pork": "No pork, bacon, ham, prosciutto, lard, or pancetta.",
+            "no red meat": "No beef, pork, lamb, steak, or ground beef.",
+            "nut-free": "No peanuts, almonds, walnuts, cashews, pecans, pistachios, or hazelnuts.",
+            "keto": "No bread, pasta, rice, potatoes, corn, tortillas, sugar, or high-carb ingredients.",
+            "low-carb": "No bread, pasta, rice, potatoes, corn, or tortillas.",
+            "halal": "No pork, alcohol-based ingredients, or non-halal meat.",
+            "kosher": "No pork or shellfish; no mixing of meat and dairy.",
+        }
+        for flag in dietary_flags:
+            if flag in flag_rules:
+                lines.append(f"  • {flag}: {flag_rules[flag]}")
+            elif flag.startswith("no "):
+                ingredient = flag[3:].strip()
+                lines.append(f"  • {flag}: Do not include {ingredient} in any form.")
+        lines.append("")
+
+    # ── Disliked ingredients ──────────────────────────────────────────────────
+    disliked = [d.lower().strip() for d in preferences.get("disliked_ingredients", [])]
+    if disliked:
+        lines.append(
+            f"DISLIKED INGREDIENTS — avoid as primary components: {', '.join(disliked)}. "
+            "Do NOT suggest a recipe where these are featured or prominent ingredients."
+        )
+        lines.append("")
+
+    # ── Time constraint ───────────────────────────────────────────────────────
+    max_prep = int(preferences.get("max_prep_time", 0))
+    if 0 < max_prep < 120:
+        lines.append(
+            f"MAX TOTAL TIME (prep + cook combined): {max_prep} minutes. "
+            "Reject or deprioritize recipes that take longer. "
+            "State the estimated time in your recipe response."
+        )
+        lines.append("")
+
+    # ── Skill level ───────────────────────────────────────────────────────────
+    skill = preferences.get("skill_level", "intermediate")
+    skill_desc = {
+        "beginner": "simple techniques only — no knife skills, no temperature-precise methods, minimal active steps",
+        "intermediate": "moderate complexity — some technique required but nothing highly specialized",
+        "advanced": "complex dishes with advanced techniques are welcome",
+    }.get(skill, "moderate complexity")
+    lines.append(f"SKILL LEVEL: {skill} — {skill_desc}. Prefer recipes that match this level.")
+    lines.append("")
+
+    # ── Serving size & household ──────────────────────────────────────────────
+    serving_size = int(preferences.get("serving_size", 2))
+    household_size = int(preferences.get("household_size", 2))
+    lines.append(f"TARGET SERVINGS: {serving_size} servings per meal (household size: {household_size} people).")
+    lines.append("")
+
+    # ── Budget ────────────────────────────────────────────────────────────────
+    budget_per_order = float(preferences.get("budget_per_order", 80.0))
+    budget_per_person = float(preferences.get("budget_per_person", 40.0))
+    effective_budget = compute_effective_budget(preferences)
+    per_person_cap = budget_per_person * serving_size
+    lines.append(
+        f"GROCERY BUDGET: ${effective_budget:.0f} effective cap "
+        f"(order limit ${budget_per_order:.0f}; ${budget_per_person:.0f}/person × {serving_size} servings = ${per_person_cap:.0f}). "
+        "The total cart cost MUST stay within this effective cap."
+    )
+    lines.append("")
+
+    # ── Organic preference ────────────────────────────────────────────────────
+    preferred_organic = preferences.get("preferred_organic", False)
+    if preferred_organic:
+        lines.append(
+            "ORGANIC PREFERENCE: The user prefers organic produce. "
+            "When listing cart items or suggesting ingredients, use organic versions of fruits and vegetables "
+            "(e.g., 'organic spinach', 'organic tomatoes', 'organic carrots'). "
+            "Prioritise organic options in recipe suggestions where applicable."
+        )
+        lines.append("")
+
+    # ── Cuisine preferences ───────────────────────────────────────────────────
+    cuisine_weights = preferences.get("cuisine_weights", {})
+    if cuisine_weights:
+        top = sorted(cuisine_weights.items(), key=lambda x: x[1], reverse=True)
+        cuisine_str = ", ".join(f"{c} (score {w:.2f})" for c, w in top[:4])
+        lines.append(
+            f"CUISINE PREFERENCES (higher score = stronger preference): {cuisine_str}. "
+            "For open-ended requests, prioritize suggestions from higher-scored cuisines."
+        )
+
+    return "\n".join(lines).strip()
 
 
 def _run_agentic_loop(system: str, user_message: str, tools: list | None = None) -> str:
@@ -302,6 +451,7 @@ def call_llm_recipe(
     preferences: dict,
     messages: list,
     pantry: list | None = None,
+    constraint_violation_note: str | None = None,
 ) -> dict:
     pantry_str = json.dumps(pantry or [])
     history_str = json.dumps([
@@ -320,15 +470,26 @@ def call_llm_recipe(
         specific_request,
     )
 
-    system = f"""You are a grocery assistant. The user wants help deciding what to cook.
+    preference_constraints = _build_preference_constraints(preferences)
+    tonight_guests = int(calendar.get("tonight_guests", 0))
+    target_servings = tonight_guests if tonight_guests > 0 else int(preferences.get("serving_size", 2))
+
+    # Prepend an escalated constraint message when retrying after any violation
+    violation_prefix = ""
+    if constraint_violation_note:
+        violation_prefix = f"⚠️ CONSTRAINT VIOLATION — CORRECTION REQUIRED:\n{constraint_violation_note}\n\n"
+
+    system = f"""{violation_prefix}You are a grocery assistant. The user wants help deciding what to cook.
 
 PANTRY (already owned - do NOT ask for this):
 {pantry_str}
 
 Calendar context: {json.dumps(calendar)}
-User preferences: {json.dumps(preferences)}
 Recent conversation: {history_str}
 Normalized dish query: {json.dumps(normalized_query)}
+
+USER PREFERENCE CONSTRAINTS — enforce ALL of the following:
+{preference_constraints}
 
 DECISION RULES - read the user's request carefully:
 
@@ -338,35 +499,44 @@ DECISION RULES - read the user's request carefully:
 
 1. OPEN-ENDED request ("what can I make", "suggest something", "based on my pantry"):
    -> Do NOT search the web yet.
-   -> Look at the pantry contents and preferences, then suggest 2-3 specific dishes they can make
-      with minimal extra ingredients.
+   -> Look at the pantry contents and preference constraints above.
+   -> Suggest 2-3 dishes that: (a) use pantry items, (b) respect ALL dietary constraints,
+      (c) avoid disliked ingredients, (d) fit the max time and skill level,
+      (e) favor higher-scored cuisines.
    -> Return status "options_presented".
 
 2. SPECIFIC dish request:
    -> Use the normalized dish query for web search.
+   -> Before returning, verify the recipe does NOT violate any dietary constraint or
+      feature any disliked ingredient as a primary component.
+   -> If the requested dish inherently violates constraints (e.g., user is vegan and asks for
+      a beef dish), return status "recipe_lookup_failed" and explain why.
    -> Search for one solid recipe only if you can provide a real recipe URL and a complete ingredient list.
    -> If you cannot find a trustworthy recipe, return status "recipe_lookup_failed".
 
 CRITICAL:
-- NEVER ask what is in the pantry - it is provided above.
+- NEVER ask what is in the pantry — it is provided above.
 - NEVER ask clarifying questions.
-- NEVER echo the whole user phrase as the recipe name if it contains request words like "I want to make".
-- For valid recipe_found results, recipe.name must be the dish name, not the raw user sentence.
+- NEVER echo the whole user phrase as the recipe name if it contains words like "I want to make".
+- For valid recipe_found results, recipe.name must be the dish name only, not the raw user sentence.
+- NEVER include any ingredient that violates the user's HARD dietary constraints listed above.
+  If you are unsure whether an ingredient violates a constraint, exclude it and use a safe alternative.
 - A valid recipe_found result MUST include:
   1. a normalized recipe name
-  2. at least 3 ingredients
+  2. at least 3 ingredients (all compliant with dietary constraints)
   3. a non-empty source_url
   4. a non-empty steps_summary
 - Return ONLY valid JSON. No markdown fences, no extra text.
-- For serving size: use tonight_guests from calendar if set, otherwise 2.
+- Target servings: {target_servings} (from calendar guests or user preference).
+  Scale ALL recipes and suggestions to exactly {target_servings} servings.
 
 For OPEN-ENDED requests return:
 {{
-  "message": "Friendly markdown message. List the options clearly using **bold** dish names. For each, mention what pantry items it uses and what 1-3 extra ingredients are needed.",
+  "message": "Friendly markdown message scaled to {target_servings} servings. List options using **bold** dish names. For each, mention what pantry items it uses and 1-3 extra ingredients needed.",
   "options": [
-    {{"name": "Dish Name", "uses_from_pantry": ["item1", "item2"], "needs": ["extra1", "extra2"]}},
-    {{"name": "Dish Name", "uses_from_pantry": ["item1"], "needs": ["extra1", "extra2", "extra3"]}},
-    {{"name": "Dish Name", "uses_from_pantry": ["item1", "item2", "item3"], "needs": ["extra1"]}}
+    {{"name": "Dish Name", "uses_from_pantry": ["item1", "item2"], "needs": ["extra1", "extra2"], "servings": {target_servings}}},
+    {{"name": "Dish Name", "uses_from_pantry": ["item1"], "needs": ["extra1", "extra2", "extra3"], "servings": {target_servings}}},
+    {{"name": "Dish Name", "uses_from_pantry": ["item1", "item2", "item3"], "needs": ["extra1"], "servings": {target_servings}}}
   ],
   "recipe": null,
   "status": "options_presented",
@@ -400,7 +570,8 @@ For SPECIFIC dish requests or user selecting an option, search then return:
   "options": null,
   "recipe": {{
     "name": "specific dish name",
-    "servings": 2,
+    "cuisine": "cuisine type e.g. Japanese, Italian, Mexican, American, Indian, Thai, Chinese, French",
+    "servings": {target_servings},
     "prep_time": "20 min",
     "cook_time": "25 min",
     "source_url": "url where recipe was found",
@@ -441,6 +612,14 @@ def call_llm_cart_narration(
 ) -> dict:
     staples_str = ", ".join(staples_assumed) if staples_assumed else "none"
 
+    dietary_flags = [f.lower() for f in preferences.get("dietary_flags", [])]
+    disliked = preferences.get("disliked_ingredients", [])
+    constraints_note = ""
+    if dietary_flags:
+        constraints_note += f" User is {', '.join(dietary_flags)}."
+    if disliked:
+        constraints_note += f" Dislikes: {', '.join(disliked)}."
+
     system = f"""You are a friendly grocery assistant. A neural network has analyzed the user's pantry
 and generated purchase recommendations. Your job is to present these clearly and conversationally.
 
@@ -448,8 +627,7 @@ Recipe: {json.dumps(recipe)}
 Pantry state: {json.dumps(pantry)}
 Ingredient gaps: {json.dumps(gaps)}
 NN recommendations: {json.dumps(nn_recommendations)}
-User preferences: {json.dumps(preferences)}
-Budget: {budget}
+Budget: ${budget:.0f}{constraints_note}
 Cart total (exact, computed from item prices - use this number, do NOT estimate): ${cart_total:.2f}
 Staples assumed on hand (filtered from cart): {staples_str}
 
@@ -504,15 +682,19 @@ def call_llm_conversation(
             user_message = msg.get("content", "")
             break
 
+    conv_constraints = _build_preference_constraints(preferences)
+
     system = f"""You are a friendly grocery assistant managing a grocery order through conversation.
 You must detect the user's intent and return a structured JSON response.
 
 Current stage: {stage}
 Current cart: {json.dumps(current_cart)}
 Recipe: {json.dumps(recipe)}
-User preferences: {json.dumps(preferences)}
-Budget: {budget}
+Budget: ${budget:.0f}
 Conversation history: {json.dumps(formatted_messages)}
+
+USER PREFERENCE CONSTRAINTS (enforce when modifying the cart):
+{conv_constraints}
 
 Intent types:
 - "modify": user wants to swap, add, remove, or change quantity of cart items
@@ -538,7 +720,7 @@ Return JSON only:
 
 If intent is "reset", cart_diff must be empty.
 If intent is "confirm", set status to "confirmed".
-Always respect dietary_flags from preferences - never add a conflicting item."""
+CRITICAL: Never add or swap in an item that violates the dietary constraints or disliked ingredients listed above."""
 
     try:
         raw_text = _run_agentic_loop(system, user_message)

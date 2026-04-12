@@ -37,11 +37,16 @@ async def start_chat(request: StartSessionRequest | None = None):
 
 @router.post("/preferences")
 async def update_preferences(request: PreferencesUpdate):
-    """Update user preferences for an existing session."""
+    """Update user preferences for an existing session and persist them."""
     session = session_manager.get_session(request.conversation_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
     session["preferences"].update(request.preferences)
+    # Persist so preferences survive backend restarts and new sessions
+    client_id = session.get("client_id")
+    if client_id:
+        from app.services import pantry_store
+        pantry_store.save_preferences(client_id, session["preferences"])
     return {"status": "ok", "preferences": session["preferences"]}
 
 
@@ -113,15 +118,91 @@ async def send_message(request: ChatRequest):
         )
 
     # -----------------------------------------------------------------------
+    # OPTIONS_PRESENTED stage: resolve option selection
+    # -----------------------------------------------------------------------
+    elif stage == "options_presented":
+        matched = session_manager.resolve_selected_option(
+            user_message, session.get("presented_options", [])
+        )
+
+        if matched:
+            # User selected a valid option — fetch its recipe via the idle pipeline
+            option_name = matched["name"]
+            session["selected_option"] = option_name
+            logger.info("Option selected: %r from presented_options=%r", option_name,
+                        [o.get("name") for o in session.get("presented_options", [])])
+
+            agent_message, recipe_result = await _handle_idle(session, option_name)
+            session["messages"].append({"role": "assistant", "content": agent_message})
+
+            return ChatResponse(
+                conversation_id=request.conversation_id,
+                message=agent_message,
+                recipe=session.get("recipe"),
+                cart=session["current_cart"] if session.get("current_cart") else None,
+                stage=session["stage"],
+            )
+
+        elif llm_service.is_explicit_recipe_request(user_message):
+            # User made a new recipe request while options were visible — start fresh
+            session_manager.reset_cart(session)
+            agent_message, recipe_result = await _handle_idle(session, user_message)
+            session["messages"].append({"role": "assistant", "content": agent_message})
+
+            return ChatResponse(
+                conversation_id=request.conversation_id,
+                message=agent_message,
+                recipe=session.get("recipe"),
+                cart=session["current_cart"] if session.get("current_cart") else None,
+                stage=session["stage"],
+            )
+
+        else:
+            # Unrecognized input — prompt the user to choose from the current options
+            options = session.get("presented_options", [])
+            if options:
+                names = ", ".join(f"**{o['name']}**" for o in options)
+                agent_message = (
+                    f"I didn't catch which one you'd like. "
+                    f"Please choose from the options I suggested: {names}. "
+                    f"Or ask for something completely different!"
+                )
+            else:
+                agent_message = (
+                    "Please tell me which dish you'd like to make, or ask for new suggestions!"
+                )
+            session["messages"].append({"role": "assistant", "content": agent_message})
+            return ChatResponse(
+                conversation_id=request.conversation_id,
+                message=agent_message,
+                stage=session["stage"],
+            )
+
+    # -----------------------------------------------------------------------
     # CART_PROPOSED / NEGOTIATING stage: conversation loop
     # -----------------------------------------------------------------------
     elif stage in ("cart_proposed", "negotiating"):
+        # Short-circuit: if the message clearly asks for alternatives, do not
+        # send it to call_llm_conversation (which might misclassify it as
+        # "question" and leave the old recipe active). Force a reset immediately.
+        if llm_service.is_context_switch(user_message) or llm_service.is_explicit_recipe_request(user_message):
+            session_manager.reset_cart(session)
+            agent_message, _ = await _handle_idle(session, user_message)
+            session["messages"].append({"role": "assistant", "content": agent_message})
+            return ChatResponse(
+                conversation_id=request.conversation_id,
+                message=agent_message,
+                recipe=session.get("recipe"),
+                cart=session["current_cart"] if session.get("current_cart") else None,
+                stage=session["stage"],
+            )
+
         result = llm_service.call_llm_conversation(
             stage=session["stage"],
             current_cart=session["current_cart"],
             recipe=session["recipe"],
             preferences=session["preferences"],
-            budget=session["preferences"].get("budget_per_order", 80.0),
+            budget=llm_service.compute_effective_budget(session["preferences"]),
             messages=session["messages"],
         )
 
@@ -144,7 +225,7 @@ async def send_message(request: ChatRequest):
 
             # Budget validation
             cart_total = _compute_cart_total(session["current_cart"])
-            budget = session["preferences"].get("budget_per_order", 80.0)
+            budget = llm_service.compute_effective_budget(session["preferences"])
             if cart_total > budget:
                 agent_message += f"\n\nHeads up: your cart total is ${cart_total:.2f}, which is over your ${budget:.2f} budget."
 
@@ -229,8 +310,10 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
         session["stage"] = "idle"
         return recipe_result.get("message", "I had trouble with that. Please try again."), recipe_result
 
-    # Options presented — stay idle so next message picks a specific dish
+    # Options presented — save the list and move to options_presented stage
     if status == "options_presented":
+        options = recipe_result.get("options") or []
+        session_manager.transition_to_options_presented(session, options)
         agent_message = recipe_result.get("message", "Here are some options! Which would you like?")
         return agent_message, recipe_result
 
@@ -239,13 +322,119 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
         return recipe_result.get("message", "I had trouble finding a recipe. Please try again."), recipe_result
 
     recipe = recipe_result["recipe"]
+
+    # ------------------------------------------------------------------
+    # Post-generation dietary validation.
+    # The LLM prompt already enforces dietary constraints, but we validate
+    # at the code level as a safety net. Up to _MAX_DIETARY_RETRIES retries
+    # are attempted; each retry passes an explicit violation note so Claude
+    # knows exactly what it got wrong.
+    # ------------------------------------------------------------------
+    _MAX_DIETARY_RETRIES = 2
+    dietary_flags = [f.lower() for f in session["preferences"].get("dietary_flags", [])]
+
+    for _attempt in range(_MAX_DIETARY_RETRIES + 1):
+        violations = nn_service.check_recipe_dietary_violations(recipe, dietary_flags)
+        if not violations:
+            break  # Recipe is clean — proceed
+
+        logger.warning(
+            "Dietary violation in recipe %r (attempt %d/%d): %r",
+            recipe.get("name"), _attempt + 1, _MAX_DIETARY_RETRIES + 1, violations,
+        )
+
+        if _attempt < _MAX_DIETARY_RETRIES:
+            violation_note = (
+                f"The previous recipe '{recipe.get('name')}' violated dietary constraints "
+                f"by including: {', '.join(violations)}. "
+                "You MUST find a different recipe that completely excludes these ingredients."
+            )
+            retry_result = llm_service.call_llm_recipe(
+                user_message=user_message,
+                calendar=session["calendar_context"],
+                preferences=session["preferences"],
+                messages=session["messages"],
+                pantry=session["pantry_state"],
+                constraint_violation_note=violation_note,
+            )
+            if retry_result.get("recipe") is None:
+                # LLM gave up — return the failure message it provided
+                session["stage"] = "idle"
+                return retry_result.get(
+                    "message",
+                    "I couldn't find a recipe that fits your dietary requirements. Try a different dish.",
+                ), retry_result
+            recipe = retry_result["recipe"]
+        else:
+            # All retries exhausted; refuse rather than serve a violating recipe
+            logger.error(
+                "Dietary retries exhausted for query %r — refusing recipe", normalized_query
+            )
+            diet_str = ", ".join(dietary_flags) or "your dietary restrictions"
+            session["stage"] = "idle"
+            return (
+                f"I wasn't able to find a **{normalized_query}** recipe that fully respects "
+                f"your dietary constraints ({diet_str}). Try asking for a different dish.",
+                {"status": "recipe_lookup_failed", "recipe": None},
+            )
+
+    # ------------------------------------------------------------------
+    # Post-generation time constraint validation.
+    # Parse prep_time + cook_time strings and retry once if the total
+    # exceeds the user's max_prep_time. If still over-limit after the
+    # retry we warn and proceed — time is a soft preference, not safety.
+    # ------------------------------------------------------------------
+    max_prep_time = int(session["preferences"].get("max_prep_time", 0))
+    if 0 < max_prep_time < 120:  # 0 or >= 120 means "no limit"
+        _MAX_TIME_RETRIES = 1
+        for _time_attempt in range(_MAX_TIME_RETRIES + 1):
+            total_time = (
+                _parse_time_minutes(recipe.get("prep_time", ""))
+                + _parse_time_minutes(recipe.get("cook_time", ""))
+            )
+            if total_time == 0 or total_time <= max_prep_time:
+                break  # within limit or time unknown — give benefit of the doubt
+            logger.warning(
+                "Recipe %r total time %d min exceeds limit %d min (attempt %d/%d)",
+                recipe.get("name"), total_time, max_prep_time,
+                _time_attempt + 1, _MAX_TIME_RETRIES + 1,
+            )
+            if _time_attempt < _MAX_TIME_RETRIES:
+                time_note = (
+                    f"The previous recipe '{recipe.get('name')}' takes ~{total_time} minutes total "
+                    f"(prep + cook), which exceeds the user's {max_prep_time}-minute limit. "
+                    f"Find a different recipe that can be fully prepared and cooked in "
+                    f"{max_prep_time} minutes or less."
+                )
+                retry_result = llm_service.call_llm_recipe(
+                    user_message=user_message,
+                    calendar=session["calendar_context"],
+                    preferences=session["preferences"],
+                    messages=session["messages"],
+                    pantry=session["pantry_state"],
+                    constraint_violation_note=time_note,
+                )
+                if retry_result.get("recipe") is None:
+                    session["stage"] = "idle"
+                    return (
+                        retry_result.get(
+                            "message",
+                            f"I couldn't find a recipe within your {max_prep_time}-minute limit. "
+                            "Try asking for a quick dish!",
+                        ),
+                        retry_result,
+                    )
+                recipe = retry_result["recipe"]
+            # else: retry exhausted — warn and continue with over-limit recipe
+
     recipe = recipe_image_service.populate_recipe_image(recipe)
     session["recipe"] = recipe
     session["full_ingredient_list"] = recipe.get("ingredients", [])
     logger.info(
-        "Recipe selected: normalized=%r name=%r ingredients=%d image=%r",
+        "Recipe selected: normalized=%r name=%r cuisine=%r ingredients=%d image=%r",
         normalized_query,
         recipe.get("name"),
+        recipe.get("cuisine", ""),
         len(session["full_ingredient_list"]),
         recipe.get("image_url", ""),
     )
@@ -263,11 +452,13 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
         max(0, len(session["full_ingredient_list"]) - len(gaps)),
     )
 
-    # Run NN recommendations
+    # Run NN recommendations — pass the recipe's cuisine so the user's
+    # cuisine_weights[cuisine] is used directly rather than averaged.
     nn_recs, staples_assumed = nn_service.recommend(
         ingredient_gaps=gaps,
         calendar=session["calendar_context"],
         preferences=session["preferences"],
+        recipe_cuisine=recipe.get("cuisine"),
     )
 
     session["nn_original_cart"] = list(nn_recs)  # immutable reference
@@ -288,7 +479,7 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
         gaps=gaps,
         nn_recommendations=nn_recs,
         preferences=session["preferences"],
-        budget=session["preferences"].get("budget_per_order", 80.0),
+        budget=llm_service.compute_effective_budget(session["preferences"]),
         cart_total=cart_total,
         staples_assumed=staples_assumed,
     )
@@ -302,3 +493,23 @@ def _compute_cart_total(cart: list) -> float:
     """Compute the total estimated cost of the current cart.
     estimated_price already accounts for quantity (set by the pricing engine)."""
     return sum(item.get("estimated_price", 0) for item in cart)
+
+
+def _parse_time_minutes(time_str: str) -> int:
+    """
+    Parse a recipe time string into total minutes.
+    Handles formats like '20 min', '1 hr 30 min', '1.5 hours', '45 minutes'.
+    Returns 0 when the string is empty or unparseable.
+    """
+    import re as _re
+    if not time_str:
+        return 0
+    s = str(time_str)
+    total = 0
+    m = _re.search(r"(\d+(?:\.\d+)?)\s*(?:hr|hour|h)\b", s, _re.IGNORECASE)
+    if m:
+        total += int(float(m.group(1)) * 60)
+    m = _re.search(r"(\d+)\s*(?:min|minute|m)\b", s, _re.IGNORECASE)
+    if m:
+        total += int(m.group(1))
+    return total
