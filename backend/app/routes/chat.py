@@ -5,6 +5,7 @@ Chat routes: /chat/start and /chat/message
 import logging
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from app.models.session import (
     ChatRequest,
@@ -57,6 +58,34 @@ async def get_preferences(conversation_id: str):
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
     return session["preferences"]
+
+
+class SummarizeRequest(BaseModel):
+    messages: list[dict]
+
+
+@router.post("/summarize-title")
+async def summarize_title(request: SummarizeRequest):
+    """Generate a short conversation title from message history."""
+    # Build a compact transcript from the first few messages
+    transcript = ""
+    for msg in request.messages[:6]:  # Only use first 6 messages max
+        role = msg.get("role", "user")
+        text = msg.get("text", "")
+        if text:
+            transcript += f"{role}: {text[:200]}\n"
+
+    if not transcript.strip():
+        return {"title": "New Chat"}
+
+    try:
+        title = llm_service.generate_title(transcript)
+        return {"title": title}
+    except Exception as e:
+        logger.warning("Title generation failed: %s", e)
+        # Fallback to first user message
+        first_user = next((m.get("text", "") for m in request.messages if m.get("role") == "user"), "New Chat")
+        return {"title": first_user[:40] + ("…" if len(first_user) > 40 else "")}
 
 
 @router.post("/message", response_model=ChatResponse)
@@ -223,11 +252,19 @@ async def send_message(request: ChatRequest):
             cart_diff = result.get("cart_diff", [])
             session_manager.apply_cart_diff(session, cart_diff)
 
+<<<<<<< HEAD
             # Budget validation
             cart_total = _compute_cart_total(session["current_cart"])
             budget = llm_service.compute_effective_budget(session["preferences"])
             if cart_total > budget:
                 agent_message += f"\n\nHeads up: your cart total is ${cart_total:.2f}, which is over your ${budget:.2f} budget."
+=======
+            # Budget validation (check subtotal against budget, not tax/delivery)
+            cart_subtotal = _compute_cart_subtotal(session["current_cart"])
+            budget = session["preferences"].get("budget_per_order", 80.0)
+            if cart_subtotal > budget:
+                agent_message += f"\n\nHeads up: your item subtotal is ${cart_subtotal:.2f}, which is over your ${budget:.2f} budget."
+>>>>>>> a22c37627c547ddcf6e555a4edb8b125e1cf1d75
 
             session["stage"] = "negotiating"
 
@@ -489,7 +526,17 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
     return agent_message, recipe_result
 
 
+GEORGIA_TAX_RATE = 0.04
+DELIVERY_FEE = 4.99
+
+
+def _compute_cart_subtotal(cart: list) -> float:
+    """Sum of item prices only (no tax/delivery)."""
+    return round(sum(item.get("estimated_price", 0) for item in cart), 2)
+
+
 def _compute_cart_total(cart: list) -> float:
+<<<<<<< HEAD
     """Compute the total estimated cost of the current cart.
     estimated_price already accounts for quantity (set by the pricing engine)."""
     return sum(item.get("estimated_price", 0) for item in cart)
@@ -513,3 +560,9 @@ def _parse_time_minutes(time_str: str) -> int:
     if m:
         total += int(m.group(1))
     return total
+=======
+    """All-in total: subtotal + GA tax + delivery fee."""
+    subtotal = _compute_cart_subtotal(cart)
+    tax = round(subtotal * GEORGIA_TAX_RATE, 2)
+    return round(subtotal + tax + DELIVERY_FEE, 2)
+>>>>>>> a22c37627c547ddcf6e555a4edb8b125e1cf1d75

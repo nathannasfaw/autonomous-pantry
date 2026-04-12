@@ -69,10 +69,18 @@ export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate 
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--bg-page)' }}>
 
-      {/* ── header ──────────────────────────────────────────────────────────── */}
-      <div className="px-6 py-5" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
-        <div className="flex items-center justify-between mb-4">
-          <div>
+      {/* ── header with visual banner ──────────────────────────────────────── */}
+      <div className="px-6 pt-0 pb-5" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
+        {/* Visual banner */}
+        <div
+          className="rounded-xl px-5 py-4 mb-4 flex items-center gap-4 -mx-0"
+          style={{
+            background: 'linear-gradient(135deg, rgba(0,97,160,0.12) 0%, rgba(13,94,157,0.06) 100%)',
+            border: '1px solid rgba(0,97,160,0.15)',
+          }}
+        >
+          <span className="text-3xl">🗄️</span>
+          <div className="flex-1">
             <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
               My Pantry
             </h2>
@@ -101,8 +109,8 @@ export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate 
             placeholder="Search pantry…"
             className="w-full pl-9 pr-4 py-2 rounded-xl text-sm outline-none"
             style={{
-              background: '#3F4147',
-              border: '1px solid #4F5159',
+              background: 'var(--bg-input)',
+              border: '1px solid var(--sidebar-border)',
               color: 'var(--text-primary)',
             }}
           />
@@ -111,7 +119,7 @@ export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate 
 
       {/* ── add form ────────────────────────────────────────────────────────── */}
       {addOpen && (
-        <div className="px-6 py-4" style={{ background: '#36393F', borderBottom: '1px solid var(--sidebar-border)' }}>
+        <div className="px-6 py-4" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--sidebar-border)' }}>
           <p className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>
             NEW ITEM
           </p>
@@ -122,7 +130,7 @@ export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate 
               onKeyDown={e => e.key === 'Enter' && handleAdd()}
               placeholder="Item name"
               className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
-              style={{ background: '#3F4147', border: '1px solid #4F5159', color: 'var(--text-primary)' }}
+              style={{ background: 'var(--bg-input)', border: '1px solid var(--sidebar-border)', color: 'var(--text-primary)' }}
               autoFocus
             />
             <input
@@ -132,13 +140,13 @@ export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate 
               value={form.quantity}
               onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
               className="w-20 px-3 py-2 rounded-lg text-sm outline-none text-center"
-              style={{ background: '#3F4147', border: '1px solid #4F5159', color: 'var(--text-primary)' }}
+              style={{ background: 'var(--bg-input)', border: '1px solid var(--sidebar-border)', color: 'var(--text-primary)' }}
             />
             <select
               value={form.unit}
               onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
               className="px-2 py-2 rounded-lg text-sm outline-none"
-              style={{ background: '#3F4147', border: '1px solid #4F5159', color: 'var(--text-secondary)' }}
+              style={{ background: 'var(--bg-input)', border: '1px solid var(--sidebar-border)', color: 'var(--text-secondary)' }}
             >
               {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
             </select>
@@ -173,8 +181,8 @@ export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate 
               <div
                 key={item.item}
                 className="flex items-center gap-3 px-4 py-3 rounded-xl group"
-                style={{ background: '#36393F', border: '1px solid transparent' }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = '#4F5159'}
+                style={{ background: 'var(--bg-card)', border: '1px solid transparent' }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--sidebar-border)'}
                 onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
               >
                 {/* confidence dot */}
@@ -204,13 +212,13 @@ export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate 
                       onBlur={() => commitEdit(item)}
                       onKeyDown={e => { if (e.key === 'Enter') commitEdit(item); if (e.key === 'Escape') setEditKey(null) }}
                       className="w-14 px-2 py-0.5 rounded text-sm text-center outline-none"
-                      style={{ background: '#4F5159', color: 'var(--text-primary)', border: '1px solid #0061A0' }}
+                      style={{ background: 'var(--sidebar-border)', color: 'var(--text-primary)', border: '1px solid #0061A0' }}
                       autoFocus
                     />
                   ) : (
                     <button
                       onClick={() => startEdit(item)}
-                      className="text-sm px-2 py-0.5 rounded hover:bg-[#4F5159] transition-colors"
+                      className="text-sm px-2 py-0.5 rounded hover:bg-[var(--bg-hover)] transition-colors"
                       style={{ color: 'var(--text-secondary)' }}
                       title="Click to edit quantity"
                     >
