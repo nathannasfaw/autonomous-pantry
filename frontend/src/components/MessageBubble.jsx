@@ -32,7 +32,7 @@ function AgentAvatar() {
 function OrderConfirmationCard({ orderDetails }) {
   return (
     <div className="card-entrance success-pulse rounded-2xl overflow-hidden w-full max-w-sm"
-         style={{ boxShadow: 'var(--shadow-card)', border: '1px solid #3F4147' }}>
+         style={{ boxShadow: 'var(--shadow-card)', border: '1px solid var(--sidebar-border)' }}>
       <div className="px-4 py-3 flex items-center gap-2" style={{ background: 'var(--card-success-header)' }}>
         <CheckIcon size={15} className="text-white" />
         <div>
@@ -59,7 +59,7 @@ function OrderConfirmationCard({ orderDetails }) {
             <span>${(orderDetails?.delivery_fee || 0).toFixed(2)}</span>
           </div>
         </div>
-        <div className="flex justify-between text-sm font-semibold pt-1" style={{ color: 'var(--text-primary)', borderTop: '1px solid #3F4147' }}>
+        <div className="flex justify-between text-sm font-semibold pt-1" style={{ color: 'var(--text-primary)', borderTop: '1px solid var(--sidebar-border)' }}>
           <span>Total</span>
           <span>${(orderDetails?.total || 0).toFixed(2)}</span>
         </div>
@@ -95,7 +95,7 @@ function TextBubble({ text }) {
             <h3 className="font-semibold text-sm mt-2 mb-1" style={{ color: '#ffffff' }}>{children}</h3>
           ),
           code: ({ children }) => (
-            <code className="px-1 py-0.5 rounded text-xs font-mono" style={{ background: '#2B2D31', color: '#7EB8DA' }}>{children}</code>
+            <code className="px-1 py-0.5 rounded text-xs font-mono" style={{ background: 'var(--bg-darkest)', color: '#7EB8DA' }}>{children}</code>
           ),
         }}
       >

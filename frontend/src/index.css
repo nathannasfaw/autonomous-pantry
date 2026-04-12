@@ -2,15 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/* ── Dark theme (default) ─────────────────────────────────────────────── */
+:root, .dark {
   --bg-sidebar: #2B2D31;
   --bg-page: #313338;
   --bg-darkest: #1E1F22;
   --bg-card: #36393F;
+  --bg-input: #3F4147;
+  --bg-hover: #3F4147;
   --sidebar-border: #3F4147;
   --text-primary: #DCDDDE;
   --text-secondary: #96989D;
   --text-muted: #72767D;
+  --scrollbar-thumb: #4F5159;
 
   --user-bubble-bg: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
   --agent-bubble-bg: #36393F;
@@ -31,6 +35,39 @@
   --bubble-agent-border: var(--agent-bubble-border);
 }
 
+/* ── Light theme ──────────────────────────────────────────────────────── */
+.light {
+  --bg-sidebar: #F7F7F8;
+  --bg-page: #FFFFFF;
+  --bg-darkest: #E5E5E6;
+  --bg-card: #F0F0F1;
+  --bg-input: #E8E8E9;
+  --bg-hover: #ECECED;
+  --sidebar-border: #D9D9DA;
+  --text-primary: #1A1A1B;
+  --text-secondary: #5A5A5C;
+  --text-muted: #8E8E90;
+  --scrollbar-thumb: #C4C4C6;
+
+  --user-bubble-bg: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
+  --agent-bubble-bg: #F0F0F1;
+  --agent-bubble-border: #D9D9DA;
+
+  --card-recipe-header: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
+  --card-cart-header: linear-gradient(135deg, #0D5E9D 0%, #074a7a 100%);
+  --card-success-header: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.08);
+  --shadow-input: 0 2px 20px rgba(0, 0, 0, 0.06);
+
+  --gradient-primary: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
+  --gradient-recipe: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
+  --gradient-cart: linear-gradient(135deg, #0D5E9D 0%, #074a7a 100%);
+  --gradient-success: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+
+  --bubble-agent-bg: var(--agent-bubble-bg);
+  --bubble-agent-border: var(--agent-bubble-border);
+}
+
 body {
   font-family: 'Inter', sans-serif;
   background: var(--bg-page);
@@ -40,7 +77,7 @@ body {
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #4F5159; border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
 
 /* Animations */
 @keyframes slideInLeft {
@@ -84,13 +121,13 @@ body {
 }
 
 .nav-item:hover:not(.nav-active) {
-  background: #3F4147;
+  background: var(--bg-hover);
   color: var(--text-primary) !important;
   transform: translateX(3px);
 }
 
 .nav-active {
-  background: #3F4147;
+  background: var(--bg-hover);
   color: var(--text-primary);
 }
 

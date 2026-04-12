@@ -55,13 +55,13 @@ export default function InputBar({ onSend, isLoading, conversationId, onItemsAdd
   return (
     <>
       <div className="px-6 pb-6 pt-3 flex-shrink-0"
-        style={{ background: '#313338' }}>
+        style={{ background: 'var(--bg-page)' }}>
         <div className="max-w-3xl mx-auto">
           <div
             className="rounded-2xl overflow-hidden"
             style={{
-              background: '#3F4147',
-              border: '1px solid #4F5159',
+              background: 'var(--bg-input)',
+              border: '1px solid var(--sidebar-border)',
               boxShadow: 'var(--shadow-input)',
             }}
           >
@@ -83,7 +83,7 @@ export default function InputBar({ onSend, isLoading, conversationId, onItemsAdd
               <div className="flex items-center gap-2">
                 <span
                   className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium select-none"
-                  style={{ background: '#2B2D31', color: 'var(--text-secondary)' }}
+                  style={{ background: 'var(--bg-darkest)', color: 'var(--text-secondary)' }}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
                   Haiku 4.5
@@ -94,8 +94,8 @@ export default function InputBar({ onSend, isLoading, conversationId, onItemsAdd
                   onClick={() => setCameraOpen(true)}
                   disabled={isLoading}
                   title="Scan pantry with camera"
-                  className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium transition-colors hover:bg-[#4F5159] disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ background: '#2B2D31', color: 'var(--text-secondary)' }}
+                  className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ background: 'var(--bg-darkest)', color: 'var(--text-secondary)' }}
                 >
                   <CameraIcon />
                   Scan Pantry
@@ -111,7 +111,7 @@ export default function InputBar({ onSend, isLoading, conversationId, onItemsAdd
                 style={{
                   background: canSend
                     ? 'linear-gradient(135deg, #0061A0, #0D5E9D)'
-                    : '#4F5159',
+                    : 'var(--sidebar-border)',
                   cursor: canSend ? 'pointer' : 'not-allowed',
                 }}
               >
@@ -120,7 +120,7 @@ export default function InputBar({ onSend, isLoading, conversationId, onItemsAdd
             </div>
           </div>
           <p className="text-center text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-            Press <kbd className="px-1 py-0.5 rounded font-mono text-[10px]" style={{ background: '#3F4147', color: 'var(--text-secondary)' }}>Enter</kbd> to send · <kbd className="px-1 py-0.5 rounded font-mono text-[10px]" style={{ background: '#3F4147', color: 'var(--text-secondary)' }}>Shift+Enter</kbd> for new line
+            Press <kbd className="px-1 py-0.5 rounded font-mono text-[10px]" style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }}>Enter</kbd> to send · <kbd className="px-1 py-0.5 rounded font-mono text-[10px]" style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }}>Shift+Enter</kbd> for new line
           </p>
         </div>
       </div>

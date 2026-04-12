@@ -17,7 +17,7 @@ export default function CartCard({ cart, onBuy }) {
 
   return (
     <div className="card-entrance rounded-2xl overflow-hidden w-full"
-         style={{ boxShadow: 'var(--shadow-card)', border: '1px solid #3F4147' }}>
+         style={{ boxShadow: 'var(--shadow-card)', border: '1px solid var(--sidebar-border)' }}>
       {/* Gradient header */}
       <div className="px-4 py-3 flex items-center gap-2" style={{ background: 'var(--card-cart-header)' }}>
         <CartIcon size={15} className="text-white opacity-90" />
@@ -30,7 +30,7 @@ export default function CartCard({ cart, onBuy }) {
       {/* Items */}
       <div className="px-4 py-2" style={{ background: 'var(--bg-card)' }}>
         {cart.map((item, i) => (
-          <div key={i} className="flex items-center justify-between py-2.5 last:border-0" style={{ borderBottom: '1px solid #3F4147' }}>
+          <div key={i} className="flex items-center justify-between py-2.5 last:border-0" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
             <div>
               <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{item.item}</span>
               <span className="text-xs ml-2" style={{ color: 'var(--text-muted)' }}>{item.quantity} {item.unit}</span>
@@ -42,7 +42,7 @@ export default function CartCard({ cart, onBuy }) {
         ))}
 
         {/* Subtotal */}
-        <div className="flex items-center justify-between mt-2 pt-3" style={{ borderTop: '1px solid #4F5159' }}>
+        <div className="flex items-center justify-between mt-2 pt-3" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Subtotal</span>
           <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>${subtotal.toFixed(2)}</span>
         </div>
@@ -60,7 +60,7 @@ export default function CartCard({ cart, onBuy }) {
         </div>
 
         {/* Total */}
-        <div className="flex items-center justify-between mt-2 pt-3" style={{ borderTop: '2px solid #4F5159' }}>
+        <div className="flex items-center justify-between mt-2 pt-3" style={{ borderTop: '2px solid var(--sidebar-border)' }}>
           <span className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Total</span>
           <span className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>${total.toFixed(2)}</span>
         </div>
