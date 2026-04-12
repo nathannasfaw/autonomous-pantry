@@ -5,6 +5,7 @@ Chat routes: /chat/start and /chat/message
 import logging
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from app.models.session import (
     ChatRequest,
@@ -52,6 +53,34 @@ async def get_preferences(conversation_id: str):
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
     return session["preferences"]
+
+
+class SummarizeRequest(BaseModel):
+    messages: list[dict]
+
+
+@router.post("/summarize-title")
+async def summarize_title(request: SummarizeRequest):
+    """Generate a short conversation title from message history."""
+    # Build a compact transcript from the first few messages
+    transcript = ""
+    for msg in request.messages[:6]:  # Only use first 6 messages max
+        role = msg.get("role", "user")
+        text = msg.get("text", "")
+        if text:
+            transcript += f"{role}: {text[:200]}\n"
+
+    if not transcript.strip():
+        return {"title": "New Chat"}
+
+    try:
+        title = llm_service.generate_title(transcript)
+        return {"title": title}
+    except Exception as e:
+        logger.warning("Title generation failed: %s", e)
+        # Fallback to first user message
+        first_user = next((m.get("text", "") for m in request.messages if m.get("role") == "user"), "New Chat")
+        return {"title": first_user[:40] + ("…" if len(first_user) > 40 else "")}
 
 
 @router.post("/message", response_model=ChatResponse)

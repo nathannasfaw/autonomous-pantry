@@ -80,6 +80,30 @@ def _get_client() -> anthropic.Anthropic:
     return _client
 
 
+def generate_title(transcript: str) -> str:
+    """Generate a short conversation title from a message transcript."""
+    client = _get_client()
+    response = client.messages.create(
+        model=MODEL,
+        max_tokens=30,
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    "Generate a very short title (4-6 words max) summarizing this cooking conversation. "
+                    "Return ONLY the title text, no quotes, no punctuation at the end.\n\n"
+                    f"{transcript}"
+                ),
+            }
+        ],
+    )
+    title = response.content[0].text.strip().strip('"').strip("'")
+    # Cap at 50 chars
+    if len(title) > 50:
+        title = title[:47] + "…"
+    return title
+
+
 def _strip_markdown_fences(text: str) -> str:
     text = text.strip()
     text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
