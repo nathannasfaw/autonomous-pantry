@@ -15,10 +15,14 @@
   --text-secondary: #96989D;
   --text-muted: #72767D;
   --scrollbar-thumb: #4F5159;
+  --text-strong: #ffffff;
 
   --user-bubble-bg: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
-  --agent-bubble-bg: #36393F;
-  --agent-bubble-border: #3F4147;
+  --price-badge-bg: rgba(0, 97, 160, 0.12);
+  --price-badge-text: #5BAFDF;
+
+  --agent-bubble-bg: #383A40;
+  --agent-bubble-border: #44464D;
 
   --card-recipe-header: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
   --card-cart-header: linear-gradient(135deg, #0D5E9D 0%, #074a7a 100%);
@@ -48,10 +52,14 @@
   --text-secondary: #5A5A5C;
   --text-muted: #8E8E90;
   --scrollbar-thumb: #C4C4C6;
+  --text-strong: #0A0A0B;
 
   --user-bubble-bg: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
-  --agent-bubble-bg: #F0F0F1;
-  --agent-bubble-border: #D9D9DA;
+  --price-badge-bg: rgba(0, 97, 160, 0.08);
+  --price-badge-text: #0061A0;
+
+  --agent-bubble-bg: #EAEAEB;
+  --agent-bubble-border: #D4D4D6;
 
   --card-recipe-header: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
   --card-cart-header: linear-gradient(135deg, #0D5E9D 0%, #074a7a 100%);

@@ -78,6 +78,7 @@ export function useChat() {
         stage: null,
         orderConfirmed: false,
         orderDetails: null,
+        timestamp: new Date().toISOString(),
       }
       setIsViewingHistory(false)
       setMessages((prev) => [...prev, userMsg])
@@ -108,6 +109,7 @@ export function useChat() {
           stage: data.stage,
           orderConfirmed: data.order_confirmed || false,
           orderDetails: data.order_details || null,
+          timestamp: new Date().toISOString(),
         }
 
         setMessages((prev) => [...prev, assistantMsg])

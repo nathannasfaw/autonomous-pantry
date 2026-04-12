@@ -12,6 +12,27 @@ const CheckIcon = ({ size = 14, className = '' }) => (
   </svg>
 )
 
+const CopyIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+  </svg>
+)
+
+const CheckSmallIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+)
+
+function formatTime(isoString) {
+  if (!isoString) return ''
+  const d = new Date(isoString)
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+}
+
 function AgentAvatar() {
   const [ping, setPing] = useState(false)
   useEffect(() => {
@@ -29,6 +50,42 @@ function AgentAvatar() {
   )
 }
 
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // fallback
+      const ta = document.createElement('textarea')
+      ta.value = text
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="copy-btn p-1 rounded-md transition-all"
+      style={{
+        color: copied ? '#34D399' : 'var(--text-muted)',
+        background: copied ? 'rgba(52,211,153,0.1)' : 'transparent',
+      }}
+      title={copied ? 'Copied!' : 'Copy message'}
+    >
+      {copied ? <CheckSmallIcon size={13} /> : <CopyIcon size={13} />}
+    </button>
+  )
+}
+
 function OrderConfirmationCard({ orderDetails }) {
   return (
     <div className="card-entrance success-pulse rounded-2xl overflow-hidden w-full max-w-sm"
@@ -38,7 +95,7 @@ function OrderConfirmationCard({ orderDetails }) {
         <div>
           <div className="text-white font-semibold text-sm">Order Placed!</div>
           <div className="text-white/70 text-xs mt-0.5">
-            Estimated delivery: {orderDetails?.estimated_delivery || '45–60 min'}
+            Estimated delivery: {orderDetails?.estimated_delivery || '45-60 min'}
           </div>
         </div>
       </div>
@@ -71,10 +128,10 @@ function OrderConfirmationCard({ orderDetails }) {
 function TextBubble({ text }) {
   return (
     <div
-      className="rounded-2xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed border"
+      className="rounded-2xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed"
       style={{
         background: 'var(--agent-bubble-bg)',
-        borderColor: 'var(--agent-bubble-border)',
+        border: '1px solid var(--agent-bubble-border)',
         color: 'var(--text-primary)',
       }}
     >
@@ -82,7 +139,7 @@ function TextBubble({ text }) {
         components={{
           p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
           strong: ({ children }) => (
-            <strong className="font-semibold" style={{ color: '#ffffff' }}>{children}</strong>
+            <strong className="font-semibold" style={{ color: 'var(--text-strong)' }}>{children}</strong>
           ),
           ul: ({ children }) => (
             <ul className="list-disc pl-4 space-y-1 mt-1 mb-2">{children}</ul>
@@ -92,7 +149,7 @@ function TextBubble({ text }) {
           ),
           li: ({ children }) => <li className="text-sm leading-relaxed">{children}</li>,
           h3: ({ children }) => (
-            <h3 className="font-semibold text-sm mt-2 mb-1" style={{ color: '#ffffff' }}>{children}</h3>
+            <h3 className="font-semibold text-sm mt-2 mb-1" style={{ color: 'var(--text-strong)' }}>{children}</h3>
           ),
           code: ({ children }) => (
             <code className="px-1 py-0.5 rounded text-xs font-mono" style={{ background: 'var(--bg-darkest)', color: '#7EB8DA' }}>{children}</code>
@@ -106,12 +163,19 @@ function TextBubble({ text }) {
 }
 
 export default function MessageBubble({ message, onBuy }) {
-  const { role, text, recipe, cart, orderConfirmed, orderDetails } = message
+  const { role, text, recipe, cart, orderConfirmed, orderDetails, timestamp } = message
   const hasCards = (recipe || (cart && cart.length > 0)) && !orderConfirmed
+  const timeStr = formatTime(timestamp)
 
   if (role === 'user') {
     return (
-      <div className="bubble-user flex justify-end">
+      <div className="bubble-user group flex justify-end items-end gap-2">
+        {timeStr && (
+          <span className="text-[11px] pb-1 opacity-0 group-hover:opacity-100 transition-opacity select-none"
+            style={{ color: 'var(--text-muted)' }}>
+            {timeStr}
+          </span>
+        )}
         <div
           className="max-w-[75%] rounded-2xl rounded-tr-sm px-4 py-2.5 text-white text-sm leading-relaxed"
           style={{ background: 'var(--user-bubble-bg)' }}
@@ -123,11 +187,24 @@ export default function MessageBubble({ message, onBuy }) {
   }
 
   return (
-    <div className="bubble-agent flex items-start gap-3">
+    <div className="bubble-agent group flex items-start gap-3">
       <AgentAvatar />
       <div className="flex flex-col gap-3 min-w-0" style={{ maxWidth: hasCards ? '95%' : '85%' }}>
-        {/* Text message at top */}
-        {text && <TextBubble text={text} />}
+        {/* Text message with copy button */}
+        {text && (
+          <div className="relative">
+            <TextBubble text={text} />
+            {/* Copy + timestamp toolbar */}
+            <div className="flex items-center gap-1.5 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <CopyButton text={text} />
+              {timeStr && (
+                <span className="text-[11px] select-none" style={{ color: 'var(--text-muted)' }}>
+                  {timeStr}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Order confirmation */}
         {orderConfirmed && orderDetails && (

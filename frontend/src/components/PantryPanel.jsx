@@ -69,10 +69,18 @@ export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate 
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--bg-page)' }}>
 
-      {/* ── header ──────────────────────────────────────────────────────────── */}
-      <div className="px-6 py-5" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
-        <div className="flex items-center justify-between mb-4">
-          <div>
+      {/* ── header with visual banner ──────────────────────────────────────── */}
+      <div className="px-6 pt-0 pb-5" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
+        {/* Visual banner */}
+        <div
+          className="rounded-xl px-5 py-4 mb-4 flex items-center gap-4 -mx-0"
+          style={{
+            background: 'linear-gradient(135deg, rgba(0,97,160,0.12) 0%, rgba(13,94,157,0.06) 100%)',
+            border: '1px solid rgba(0,97,160,0.15)',
+          }}
+        >
+          <span className="text-3xl">🗄️</span>
+          <div className="flex-1">
             <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
               My Pantry
             </h2>

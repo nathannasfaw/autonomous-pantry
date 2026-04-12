@@ -91,14 +91,23 @@ export default function PreferencesPanel({ preferences, onUpdate }) {
   return (
     <div className="flex-1 overflow-y-auto py-8 px-6">
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="mb-2">
-          <h2 className="text-xl font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-            Preferences
-          </h2>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            Customize how your grocery assistant finds recipes and builds your cart.
-          </p>
+        {/* Header with visual banner */}
+        <div
+          className="rounded-xl px-5 py-4 mb-2 flex items-center gap-4"
+          style={{
+            background: 'linear-gradient(135deg, rgba(0,97,160,0.12) 0%, rgba(13,94,157,0.06) 100%)',
+            border: '1px solid rgba(0,97,160,0.15)',
+          }}
+        >
+          <span className="text-3xl">⚙️</span>
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+              Preferences
+            </h2>
+            <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              Customize how your grocery assistant finds recipes and builds your cart.
+            </p>
+          </div>
         </div>
 
         {/* Quality vs Price */}
