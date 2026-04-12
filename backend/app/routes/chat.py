@@ -252,19 +252,11 @@ async def send_message(request: ChatRequest):
             cart_diff = result.get("cart_diff", [])
             session_manager.apply_cart_diff(session, cart_diff)
 
-<<<<<<< HEAD
             # Budget validation
             cart_total = _compute_cart_total(session["current_cart"])
             budget = llm_service.compute_effective_budget(session["preferences"])
             if cart_total > budget:
                 agent_message += f"\n\nHeads up: your cart total is ${cart_total:.2f}, which is over your ${budget:.2f} budget."
-=======
-            # Budget validation (check subtotal against budget, not tax/delivery)
-            cart_subtotal = _compute_cart_subtotal(session["current_cart"])
-            budget = session["preferences"].get("budget_per_order", 80.0)
-            if cart_subtotal > budget:
-                agent_message += f"\n\nHeads up: your item subtotal is ${cart_subtotal:.2f}, which is over your ${budget:.2f} budget."
->>>>>>> a22c37627c547ddcf6e555a4edb8b125e1cf1d75
 
             session["stage"] = "negotiating"
 
@@ -536,7 +528,6 @@ def _compute_cart_subtotal(cart: list) -> float:
 
 
 def _compute_cart_total(cart: list) -> float:
-<<<<<<< HEAD
     """Compute the total estimated cost of the current cart.
     estimated_price already accounts for quantity (set by the pricing engine)."""
     return sum(item.get("estimated_price", 0) for item in cart)
@@ -560,9 +551,3 @@ def _parse_time_minutes(time_str: str) -> int:
     if m:
         total += int(m.group(1))
     return total
-=======
-    """All-in total: subtotal + GA tax + delivery fee."""
-    subtotal = _compute_cart_subtotal(cart)
-    tax = round(subtotal * GEORGIA_TAX_RATE, 2)
-    return round(subtotal + tax + DELIVERY_FEE, 2)
->>>>>>> a22c37627c547ddcf6e555a4edb8b125e1cf1d75

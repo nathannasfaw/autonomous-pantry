@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { createPortal } from 'react-dom'
 
 const API_BASE = 'http://localhost:8000'
 const SCAN_INTERVAL_MS = 800
@@ -378,7 +377,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
   })
 
   /* ── render ──────────────────────────────────────────────────────────────── */
-  return createPortal(
+  return (
     <div
       className="fixed inset-0 flex items-center justify-center z-50"
       style={{ background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)' }}
@@ -387,8 +386,8 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
       <div
         className="flex rounded-2xl overflow-hidden"
         style={{
-          background: 'var(--bg-sidebar)',
-          border: '1px solid var(--sidebar-border)',
+          background: '#2B2D31',
+          border: '1px solid #4F5159',
           width: '92vw', maxWidth: 860,
           maxHeight: '90vh',
           boxShadow: '0 32px 80px rgba(0,0,0,0.7)',
@@ -400,7 +399,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
 
           {/* header */}
           <div className="flex items-center justify-between px-4 py-3"
-            style={{ borderBottom: '1px solid var(--bg-darkest)' }}>
+            style={{ borderBottom: '1px solid #1E1F22' }}>
             <div className="flex items-center gap-2.5">
               <CameraIcon />
               <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -421,7 +420,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
                   value={selectedDevice}
                   onChange={e => setSelectedDevice(e.target.value)}
                   className="text-xs rounded-lg px-2 py-1 outline-none"
-                  style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)', border: '1px solid var(--sidebar-border)' }}
+                  style={{ background: '#3F4147', color: 'var(--text-secondary)', border: '1px solid #4F5159' }}
                 >
                   {devices.map((d, i) => (
                     <option key={d.deviceId} value={d.deviceId}>
@@ -431,7 +430,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
                 </select>
               )}
               <button onClick={onClose}
-                className="p-1 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
+                className="p-1 rounded-lg hover:bg-[#3F4147] transition-colors"
                 style={{ color: 'var(--text-secondary)' }}>
                 <XIcon />
               </button>
@@ -459,7 +458,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
                     style={{ background: 'rgba(0,0,0,0.55)' }}>
                     <button onClick={resumeScanning}
                       className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
-                      style={{ background: 'var(--bg-input)', color: 'var(--text-primary)' }}>
+                      style={{ background: '#3F4147', color: 'var(--text-primary)' }}>
                       <CameraIcon /> Resume scanning
                     </button>
                   </div>
@@ -475,7 +474,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
 
           {/* legend + action bar */}
           <div className="px-4 py-3 flex items-center justify-between gap-3"
-            style={{ borderTop: '1px solid var(--bg-darkest)' }}>
+            style={{ borderTop: '1px solid #1E1F22' }}>
             <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
               <span className="flex items-center gap-1.5">
                 <span className="w-3 h-0.5 inline-block" style={{ background: BOX_COLOR_YOLO, opacity: 0.7 }} />
@@ -489,7 +488,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
             {phase === 'live' && isScanning && (
               <button onClick={goToReview}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold flex-shrink-0"
-                style={{ background: 'var(--bg-input)', color: 'var(--text-primary)' }}>
+                style={{ background: '#3F4147', color: 'var(--text-primary)' }}>
                 <StopIcon /> Done scanning
               </button>
             )}
@@ -504,7 +503,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
         {/* ── RIGHT: detected items ─────────────────────────────────────────── */}
         <div className="flex flex-col flex-1 min-w-0">
           <div className="px-5 py-3 flex items-center gap-2.5"
-            style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
+            style={{ borderBottom: '1px solid #3F4147' }}>
             <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
               Detected items
             </span>
@@ -532,7 +531,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
                   onClick={() => phase === 'review' && toggleKey(it.key)}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
                   style={{
-                    background: selectedKeys.has(it.key) ? 'rgba(0,212,255,0.08)' : 'var(--bg-input)',
+                    background: selectedKeys.has(it.key) ? 'rgba(0,212,255,0.08)' : '#3F4147',
                     border: `1px solid ${selectedKeys.has(it.key) ? 'rgba(0,212,255,0.35)' : 'transparent'}`,
                     cursor: phase === 'review' ? 'pointer' : 'default',
                   }}
@@ -541,8 +540,8 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
                   {phase === 'review' ? (
                     <div className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
                       style={{
-                        background: selectedKeys.has(it.key) ? '#00D4FF' : 'var(--bg-sidebar)',
-                        border: `1.5px solid ${selectedKeys.has(it.key) ? '#00D4FF' : 'var(--sidebar-border)'}`,
+                        background: selectedKeys.has(it.key) ? '#00D4FF' : '#2B2D31',
+                        border: `1.5px solid ${selectedKeys.has(it.key) ? '#00D4FF' : '#4F5159'}`,
                       }}>
                       {selectedKeys.has(it.key) && <span style={{ color: '#000' }}><CheckIcon /></span>}
                     </div>
@@ -581,7 +580,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
           </div>
 
           {phase === 'review' && (
-            <div className="px-4 py-3" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
+            <div className="px-4 py-3" style={{ borderTop: '1px solid #3F4147' }}>
               <button
                 onClick={confirmItems}
                 disabled={selectedKeys.size === 0}
@@ -596,7 +595,6 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
       </div>
 
       <canvas ref={frameRef} className="hidden" />
-    </div>,
-    document.body
+    </div>
   )
 }

@@ -9,17 +9,10 @@ const SendIcon = () => (
 )
 
 const CameraIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
     <circle cx="12" cy="13" r="4"/>
-  </svg>
-)
-
-const PaperclipIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
   </svg>
 )
 
@@ -61,25 +54,14 @@ export default function InputBar({ onSend, isLoading, conversationId, onItemsAdd
 
   return (
     <>
-      {/* Fade gradient above input area */}
-      <div
-        className="pointer-events-none flex-shrink-0"
-        style={{
-          height: 40,
-          marginBottom: -40,
-          position: 'relative',
-          zIndex: 3,
-          background: 'linear-gradient(0deg, var(--bg-page) 0%, transparent 100%)',
-        }}
-      />
-
-      <div className="px-6 pb-5 pt-4 flex-shrink-0 relative" style={{ zIndex: 4, background: 'var(--bg-page)' }}>
-        <div className="max-w-3xl mx-auto">
+      <div className="px-6 pb-6 pt-3 flex-shrink-0"
+        style={{ background: '#313338' }}>
+        <div className="max-w-4xl mx-auto">
           <div
             className="rounded-2xl overflow-hidden"
             style={{
-              background: 'var(--bg-input)',
-              border: '1px solid var(--sidebar-border)',
+              background: '#3F4147',
+              border: '1px solid #4F5159',
               boxShadow: 'var(--shadow-input)',
             }}
           >
@@ -98,23 +80,28 @@ export default function InputBar({ onSend, isLoading, conversationId, onItemsAdd
 
             {/* Bottom toolbar */}
             <div className="flex items-center justify-between px-3 pb-3">
-              {/* Left: action buttons */}
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium select-none"
+                  style={{ background: '#2B2D31', color: 'var(--text-secondary)' }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                  Haiku 4.5
+                </span>
+
+                {/* Camera button */}
                 <button
                   onClick={() => setCameraOpen(true)}
                   disabled={isLoading}
                   title="Scan pantry with camera"
-                  className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ color: 'var(--text-muted)' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium transition-colors hover:bg-[#4F5159] disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ background: '#2B2D31', color: 'var(--text-secondary)' }}
                 >
                   <CameraIcon />
-                  Scan
+                  Scan Pantry
                 </button>
               </div>
 
-              {/* Right: send button */}
               <button
                 onClick={submit}
                 disabled={!canSend}
@@ -124,7 +111,7 @@ export default function InputBar({ onSend, isLoading, conversationId, onItemsAdd
                 style={{
                   background: canSend
                     ? 'linear-gradient(135deg, #0061A0, #0D5E9D)'
-                    : 'var(--sidebar-border)',
+                    : '#4F5159',
                   cursor: canSend ? 'pointer' : 'not-allowed',
                 }}
               >
@@ -132,22 +119,9 @@ export default function InputBar({ onSend, isLoading, conversationId, onItemsAdd
               </button>
             </div>
           </div>
-
-          {/* Footer: model badge + hints */}
-          <div className="flex items-center justify-between mt-2 px-1">
-            <span
-              className="inline-flex items-center gap-1.5 text-[11px] font-medium select-none"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-              Haiku 4.5
-            </span>
-            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-              <kbd className="px-1 py-0.5 rounded font-mono text-[10px]" style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }}>Enter</kbd> to send
-              {' '}&middot;{' '}
-              <kbd className="px-1 py-0.5 rounded font-mono text-[10px]" style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }}>Shift+Enter</kbd> new line
-            </p>
-          </div>
+          <p className="text-center text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+            Press <kbd className="px-1 py-0.5 rounded font-mono text-[10px]" style={{ background: '#3F4147', color: 'var(--text-secondary)' }}>Enter</kbd> to send · <kbd className="px-1 py-0.5 rounded font-mono text-[10px]" style={{ background: '#3F4147', color: 'var(--text-secondary)' }}>Shift+Enter</kbd> for new line
+          </p>
         </div>
       </div>
 

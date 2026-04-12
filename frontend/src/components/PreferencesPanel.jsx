@@ -91,23 +91,14 @@ export default function PreferencesPanel({ preferences, onUpdate }) {
   return (
     <div className="flex-1 overflow-y-auto py-8 px-6">
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header with visual banner */}
-        <div
-          className="rounded-xl px-5 py-4 mb-2 flex items-center gap-4"
-          style={{
-            background: 'linear-gradient(135deg, rgba(0,97,160,0.12) 0%, rgba(13,94,157,0.06) 100%)',
-            border: '1px solid rgba(0,97,160,0.15)',
-          }}
-        >
-          <span className="text-3xl">⚙️</span>
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-              Preferences
-            </h2>
-            <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              Customize how your grocery assistant finds recipes and builds your cart.
-            </p>
-          </div>
+        {/* Header */}
+        <div className="mb-2">
+          <h2 className="text-xl font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+            Preferences
+          </h2>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+            Customize how your grocery assistant finds recipes and builds your cart.
+          </p>
         </div>
 
         {/* Quality vs Price */}
@@ -132,15 +123,15 @@ export default function PreferencesPanel({ preferences, onUpdate }) {
               onClick={() => onUpdate({ preferred_organic: !preferences.preferred_organic })}
               className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm transition-all"
               style={{
-                background: preferences.preferred_organic ? 'rgba(0,97,160,0.15)' : 'var(--bg-input)',
-                border: `1px solid ${preferences.preferred_organic ? '#0061A0' : 'var(--sidebar-border)'}`,
+                background: preferences.preferred_organic ? 'rgba(0,97,160,0.15)' : '#3F4147',
+                border: `1px solid ${preferences.preferred_organic ? '#0061A0' : '#4F5159'}`,
                 color: 'var(--text-primary)',
               }}
             >
               <span className="font-medium">Prefer organic produce</span>
               <div
                 className="w-9 h-5 rounded-full relative transition-all"
-                style={{ background: preferences.preferred_organic ? '#0061A0' : 'var(--sidebar-border)' }}
+                style={{ background: preferences.preferred_organic ? '#0061A0' : '#4F5159' }}
               >
                 <div
                   className="w-3.5 h-3.5 rounded-full bg-white absolute top-[3px] transition-all"
@@ -218,8 +209,8 @@ export default function PreferencesPanel({ preferences, onUpdate }) {
                     onClick={() => onUpdate({ skill_level: value })}
                     className="text-left p-3 rounded-lg transition-all"
                     style={{
-                      background: preferences.skill_level === value ? 'rgba(0,97,160,0.15)' : 'var(--bg-input)',
-                      border: `1px solid ${preferences.skill_level === value ? '#0061A0' : 'var(--sidebar-border)'}`,
+                      background: preferences.skill_level === value ? 'rgba(0,97,160,0.15)' : '#3F4147',
+                      border: `1px solid ${preferences.skill_level === value ? '#0061A0' : '#4F5159'}`,
                     }}
                   >
                     <div className="text-sm font-medium" style={{ color: preferences.skill_level === value ? '#fff' : 'var(--text-primary)' }}>
@@ -246,7 +237,7 @@ export default function PreferencesPanel({ preferences, onUpdate }) {
                   style={{
                     background: active ? 'rgba(0,97,160,0.2)' : 'transparent',
                     color: active ? '#fff' : 'var(--text-secondary)',
-                    border: `1px solid ${active ? '#0061A0' : 'var(--sidebar-border)'}`,
+                    border: `1px solid ${active ? '#0061A0' : '#4F5159'}`,
                   }}
                 >
                   {active && <span className="mr-1.5">&#10003;</span>}
@@ -271,9 +262,9 @@ export default function PreferencesPanel({ preferences, onUpdate }) {
               placeholder="e.g. anchovies, cilantro..."
               className="flex-1 text-sm px-3.5 py-2.5 rounded-lg outline-none"
               style={{
-                background: 'var(--bg-input)',
+                background: '#3F4147',
                 color: 'var(--text-primary)',
-                border: '1px solid var(--sidebar-border)',
+                border: '1px solid #4F5159',
               }}
             />
             <button
@@ -290,7 +281,7 @@ export default function PreferencesPanel({ preferences, onUpdate }) {
                 <span
                   key={item}
                   className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg"
-                  style={{ background: 'var(--sidebar-border)', color: 'var(--text-secondary)' }}
+                  style={{ background: '#4F5159', color: 'var(--text-secondary)' }}
                 >
                   {item}
                   <button

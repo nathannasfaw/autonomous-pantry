@@ -11,19 +11,7 @@ export function usePantry(conversationId) {
     setLoading(true)
     try {
       const res = await fetch(`${API_BASE}/pantry/${conversationId}`)
-      if (!res.ok) {
-        // Session might not be ready yet — retry once after a short delay
-        if (res.status === 404) {
-          await new Promise(r => setTimeout(r, 500))
-          const retry = await fetch(`${API_BASE}/pantry/${conversationId}`)
-          if (retry.ok) {
-            const data = await retry.json()
-            setItems(data.pantry ?? [])
-            return
-          }
-        }
-        return
-      }
+      if (!res.ok) return
       const data = await res.json()
       setItems(data.pantry ?? [])
     } catch (err) {

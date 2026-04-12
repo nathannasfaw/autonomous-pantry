@@ -9,32 +9,18 @@ const UtensilsIcon = ({ size = 15, className = '' }) => (
   </svg>
 )
 
-function RecipeImage({ name, imageUrl, onFail }) {
+function RecipeImage({ name, imageUrl }) {
+  const [failed, setFailed] = useState(false)
+  if (!imageUrl || failed) return null
+
   return (
     <div className="w-full h-40 overflow-hidden">
       <img
         src={imageUrl}
         alt={name}
         className="w-full h-full object-cover"
-        onError={onFail}
+        onError={() => setFailed(true)}
       />
-    </div>
-  )
-}
-
-function RecipeFallbackVisual() {
-  return (
-    <div
-      className="w-full h-28 flex items-center justify-center overflow-hidden"
-      style={{
-        background: 'linear-gradient(135deg, rgba(0,97,160,0.15) 0%, rgba(13,94,157,0.08) 50%, var(--bg-card) 100%)',
-      }}
-    >
-      <div className="flex items-center gap-4 opacity-30">
-        <span className="text-3xl">🍽</span>
-        <span className="text-3xl">🥘</span>
-        <span className="text-3xl">🧑‍🍳</span>
-      </div>
     </div>
   )
 }
@@ -44,17 +30,12 @@ export default function RecipeCard({ recipe }) {
   const { name, servings, prep_time, cook_time, ingredients = [], source_url, image_url } = recipe
   const shown = ingredients.slice(0, 5)
   const remaining = ingredients.length - 5
-  const [imageFailed, setImageFailed] = useState(false)
-  const showImage = image_url && !imageFailed
+  const hasImage = Boolean(image_url)
 
   return (
     <div className="card-entrance rounded-2xl overflow-hidden w-full"
-         style={{ boxShadow: 'var(--shadow-card)', border: '1px solid var(--sidebar-border)' }}>
-      {showImage ? (
-        <RecipeImage name={name} imageUrl={image_url} onFail={() => setImageFailed(true)} />
-      ) : (
-        <RecipeFallbackVisual />
-      )}
+         style={{ boxShadow: 'var(--shadow-card)', border: '1px solid #3F4147' }}>
+      {hasImage && <RecipeImage name={name} imageUrl={image_url} />}
 
       <div className="px-4 py-3 flex items-center gap-2" style={{ background: 'var(--card-recipe-header)' }}>
         <UtensilsIcon size={15} className="text-white opacity-90" />
