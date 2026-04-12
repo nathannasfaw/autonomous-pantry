@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 
 const STORAGE_KEY = 'fridgy-conversations'
+const API_BASE = 'http://localhost:8000'
 
 function loadHistory() {
   try {
@@ -17,7 +18,7 @@ function saveHistory(history) {
 
 /**
  * Manages a list of past conversations in localStorage.
- * Each entry: { id, title, createdAt, messages }
+ * Each entry: { id, title, titleGenerated, createdAt, messages }
  */
 export function useConversationHistory() {
   const [history, setHistory] = useState(() => loadHistory())
@@ -28,7 +29,8 @@ export function useConversationHistory() {
       const existing = prev.findIndex(c => c.id === id)
       const entry = {
         id,
-        title: title || deriveTitle(messages),
+        title: title || (existing >= 0 ? prev[existing].title : 'New Chat'),
+        titleGenerated: title ? true : (existing >= 0 ? prev[existing].titleGenerated : false),
         createdAt: existing >= 0 ? prev[existing].createdAt : new Date().toISOString(),
         messages,
       }
@@ -39,8 +41,17 @@ export function useConversationHistory() {
       } else {
         updated = [entry, ...prev]
       }
-      // Keep last 50 conversations
       updated = updated.slice(0, 50)
+      saveHistory(updated)
+      return updated
+    })
+  }, [])
+
+  const updateTitle = useCallback((id, title) => {
+    setHistory(prev => {
+      const updated = prev.map(c =>
+        c.id === id ? { ...c, title, titleGenerated: true } : c
+      )
       saveHistory(updated)
       return updated
     })
@@ -58,12 +69,24 @@ export function useConversationHistory() {
     return loadHistory().find(c => c.id === id) || null
   }, [])
 
-  return { history, saveConversation, deleteConversation, getConversation }
-}
+  // Request a summarized title from the backend
+  const generateTitle = useCallback(async (id, messages) => {
+    try {
+      const res = await fetch(`${API_BASE}/chat/summarize-title`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.title) {
+          updateTitle(id, data.title)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to generate title:', err)
+    }
+  }, [updateTitle])
 
-function deriveTitle(messages) {
-  const firstUser = messages.find(m => m.role === 'user')
-  if (!firstUser) return 'New Chat'
-  const text = firstUser.text || ''
-  return text.length > 40 ? text.slice(0, 40) + '…' : text
+  return { history, saveConversation, deleteConversation, getConversation, updateTitle, generateTitle }
 }

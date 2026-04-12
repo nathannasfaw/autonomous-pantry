@@ -5,7 +5,7 @@ import { useConversationHistory } from './hooks/useConversationHistory'
 import ChatWindow from './components/ChatWindow'
 import PreferencesPanel from './components/PreferencesPanel'
 import PantryPanel from './components/PantryPanel'
-import chefLogo from './assets/logo.png'
+
 
 /* ── Icon components ──────────────────────────────────────────────────────── */
 
@@ -170,7 +170,7 @@ export default function App() {
     historyConvId, isViewingHistory,
   } = useChat()
   const { items: pantryItems, loading: pantryLoading, fetchPantry, addItem, deleteItem, updateItem } = usePantry(conversationId)
-  const { history, saveConversation, deleteConversation, getConversation } = useConversationHistory()
+  const { history, saveConversation, deleteConversation, getConversation, generateTitle } = useConversationHistory()
 
   const [activeTab, setActiveTab] = useState('chat')
   const [activeConvId, setActiveConvId] = useState(null) // tracks which history entry is active
@@ -184,8 +184,16 @@ export default function App() {
     if (historyConvId && messages.length > 0) {
       saveConversation(historyConvId, null, messages)
       setActiveConvId(historyConvId)
+
+      // Generate a title after the first assistant response (2 messages = 1 user + 1 assistant)
+      const conv = history.find(c => c.id === historyConvId)
+      const needsTitle = !conv?.titleGenerated
+      const hasFirstExchange = messages.length >= 2 && messages.some(m => m.role === 'assistant')
+      if (needsTitle && hasFirstExchange) {
+        generateTitle(historyConvId, messages)
+      }
     }
-  }, [messages, historyConvId, isViewingHistory, saveConversation])
+  }, [messages, historyConvId, isViewingHistory, saveConversation, generateTitle, history])
 
   // Apply theme
   useEffect(() => {
@@ -249,11 +257,12 @@ export default function App() {
         style={{ background: 'var(--bg-sidebar)', borderRight: '1px solid var(--sidebar-border)' }}
       >
         {/* Brand */}
-        <div className="px-5 py-4 flex items-center gap-3 flex-shrink-0"
+        <div className="px-5 py-4 flex items-center flex-shrink-0"
           style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
-          <img src={chefLogo} alt="Fridgy" className="w-9 h-9 rounded-xl object-cover" />
-          <span className="font-semibold text-base leading-tight" style={{ color: 'var(--text-primary)' }}>
-            Fridgy
+          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.35rem', fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1 }}>
+            <span style={{ color: 'var(--text-primary)' }}>Kitchen</span>
+            <span style={{ color: '#0061A0', fontWeight: 800 }}>Sync</span>
+            <span style={{ color: 'var(--text-primary)' }}>.</span>
           </span>
         </div>
 

@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react'
 import MessageBubble from './MessageBubble'
 import TypingIndicator from './TypingIndicator'
 import InputBar from './InputBar'
-import chefLogo from '../assets/logo.png'
+
 
 const SUGGESTIONS = [
   {
@@ -66,7 +66,11 @@ export default function ChatWindow({ messages, isLoading, sendMessage, conversat
           {messages.length === 0 && !isLoading ? (
             <div className="flex flex-col items-center justify-center min-h-[65vh] text-center">
               <div className="mb-6 welcome-float welcome-float-1">
-                <img src={chefLogo} alt="Fridgy" className="w-16 h-16 rounded-2xl" />
+                <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1 }}>
+                  <span style={{ color: 'var(--text-primary)' }}>Kitchen</span>
+                  <span style={{ color: '#0061A0', fontWeight: 800 }}>Sync</span>
+                  <span style={{ color: 'var(--text-primary)' }}>.</span>
+                </span>
               </div>
               <h2 className="text-2xl font-semibold mb-1 tracking-tight welcome-float welcome-float-2" style={{ color: 'var(--text-primary)' }}>
                 Hope the day's treating you well
