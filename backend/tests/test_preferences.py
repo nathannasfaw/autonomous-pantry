@@ -364,10 +364,174 @@ class TestNNRecommendFiltering(unittest.TestCase):
         finally:
             ns._model = original_model
 
+    def test_lukewarm_water_is_treated_as_staple_not_cart_item(self):
+        import app.services.nn_service as ns
+
+        mock_tensor = MagicMock()
+        mock_tensor.squeeze.return_value.item.return_value = 0.9
+        mock_model = MagicMock(return_value=mock_tensor)
+        original_model = ns._model
+        ns._model = mock_model
+
+        try:
+            gaps = [self._make_gap("lukewarm water"), self._make_gap("flour")]
+            prefs = {"dietary_flags": [], "disliked_ingredients": [],
+                     "cuisine_weights": {}, "budget_per_order": 80.0, "quality_priority": 0.5}
+            calendar = {"tonight_guests": 2, "events_this_week": []}
+            cart, staples = ns.recommend(gaps, calendar, prefs)
+            cart_names = [c["item"] for c in cart]
+            self.assertNotIn("lukewarm water", cart_names)
+            self.assertIn("lukewarm water", staples)
+            self.assertIn("flour", cart_names)
+        finally:
+            ns._model = original_model
+
 
 # ===========================================================================
 # 6. check_recipe_dietary_violations — post-generation recipe validation
 # ===========================================================================
+class TestNNCheckoutPricing(unittest.TestCase):
+    """Checkout pricing should preserve package prices and expose pricing metadata."""
+
+    def test_package_price_is_not_scaled_by_quality_priority(self):
+        import app.services.nn_service as ns
+
+        mock_tensor = MagicMock()
+        mock_tensor.squeeze.return_value.item.return_value = 0.9
+        mock_model = MagicMock(return_value=mock_tensor)
+        original_model = ns._model
+        ns._model = mock_model
+
+        gap = {"item": "flour", "required": 2.0, "available": 0.0, "gap": 2.0, "unit": "cup", "confidence": 0.9}
+        pricing_result = {
+            "estimated_price": 4.49,
+            "pricing_source": "package_pricing",
+            "fallback_reason": None,
+            "brand": "King Arthur",
+            "product_name": "All-Purpose Flour",
+            "package_amount": 5.0,
+            "package_unit": "lb",
+            "package_price": 4.49,
+            "packages_needed": 1,
+            "required_amount": 2.0,
+            "required_unit": "cup",
+        }
+
+        try:
+            with patch("app.services.product_resolver.resolve_basket_pricing", return_value=pricing_result):
+                prefs = {
+                    "dietary_flags": [],
+                    "disliked_ingredients": [],
+                    "cuisine_weights": {},
+                    "budget_per_order": 80.0,
+                    "quality_priority": 1.0,
+                }
+                calendar = {"tonight_guests": 2, "events_this_week": []}
+                cart, _ = ns.recommend([gap], calendar, prefs)
+        finally:
+            ns._model = original_model
+
+        self.assertEqual(len(cart), 1)
+        self.assertAlmostEqual(cart[0]["estimated_price"], 4.49, places=2)
+        self.assertEqual(cart[0]["pricing_source"], "package_pricing")
+        self.assertEqual(cart[0]["brand"], "King Arthur")
+        self.assertEqual(cart[0]["product_name"], "All-Purpose Flour")
+        self.assertIsNone(cart[0]["fallback_reason"])
+
+
+class TestGapAndCartCompleteness(unittest.TestCase):
+    def test_tomato_sauce_is_not_satisfied_by_tomato(self):
+        from app.services.gap_analysis import compute_gaps
+
+        recipe = [{"item": "tomato sauce", "quantity": 0.5, "unit": "cup"}]
+        pantry = [{"item": "tomato", "quantity": 2.0, "unit": "count", "confidence": 1.0}]
+
+        gaps = compute_gaps(recipe, pantry)
+        self.assertEqual(len(gaps), 1)
+        self.assertEqual(gaps[0]["item"], "tomato sauce")
+
+    def test_olive_oil_gap_is_satisfied_by_extra_virgin_olive_oil(self):
+        from app.services.gap_analysis import compute_gaps
+
+        recipe = [{"item": "olive oil", "quantity": 2.0, "unit": "tbsp"}]
+        pantry = [{"item": "extra virgin olive oil", "quantity": 16.0, "unit": "fl oz", "confidence": 1.0}]
+
+        gaps = compute_gaps(recipe, pantry)
+        self.assertEqual(gaps, [])
+
+    def test_olive_oil_gap_is_satisfied_by_one_bottle_in_pantry(self):
+        from app.services.gap_analysis import compute_gaps
+
+        recipe = [{"item": "olive oil", "quantity": 2.0, "unit": "tbsp"}]
+        pantry = [{"item": "olive oil", "quantity": 1.0, "unit": "bottle", "confidence": 1.0}]
+
+        gaps = compute_gaps(recipe, pantry)
+        self.assertEqual(gaps, [])
+
+    def test_recipe_echo_ingredient_is_excluded_from_gaps(self):
+        from app.services.gap_analysis import compute_gaps
+
+        recipe = [{"item": "pizza", "quantity": 1.0, "unit": "count"}]
+        gaps = compute_gaps(recipe, [], recipe_name="Margherita Pizza")
+        self.assertEqual(gaps, [])
+
+    def test_low_scoring_missing_ingredient_still_appears_in_cart(self):
+        import app.services.nn_service as ns
+
+        mock_tensor = MagicMock()
+        mock_tensor.squeeze.return_value.item.return_value = 0.1
+        mock_model = MagicMock(return_value=mock_tensor)
+        original_model = ns._model
+        ns._model = mock_model
+
+        gap = {"item": "tomato sauce", "required": 0.5, "available": 0.0, "gap": 0.5, "unit": "cup", "confidence": 0.9}
+        pricing_result = {
+            "estimated_price": 1.49,
+            "pricing_source": "package_pricing",
+            "fallback_reason": None,
+            "brand": "Hunts",
+            "product_name": "Tomato Sauce",
+            "package_amount": 15.0,
+            "package_unit": "oz",
+            "package_price": 1.49,
+            "packages_needed": 1,
+            "required_amount": 0.5,
+            "required_unit": "cup",
+        }
+
+        try:
+            with patch("app.services.product_resolver.resolve_basket_pricing", return_value=pricing_result):
+                prefs = {
+                    "dietary_flags": [],
+                    "disliked_ingredients": [],
+                    "cuisine_weights": {},
+                    "budget_per_order": 80.0,
+                    "quality_priority": 0.0,
+                }
+                calendar = {"tonight_guests": 2, "events_this_week": []}
+                cart, _ = ns.recommend([gap], calendar, prefs)
+        finally:
+            ns._model = original_model
+
+        self.assertEqual(len(cart), 1)
+        self.assertEqual(cart[0]["item"], "tomato sauce")
+        self.assertAlmostEqual(cart[0]["score"], 0.1, places=4)
+
+    def test_optional_placeholder_ingredient_is_excluded_from_gaps(self):
+        from app.services.gap_analysis import compute_gaps
+
+        recipe = [{"item": "your choice of toppings", "quantity": 1, "unit": "as desired"}]
+        gaps = compute_gaps(recipe, [])
+        self.assertEqual(gaps, [])
+
+    def test_toppings_placeholder_is_excluded_even_with_numeric_quantity(self):
+        from app.services.gap_analysis import compute_gaps
+
+        recipe = [{"item": "desired toppings", "quantity": 1, "unit": "count"}]
+        gaps = compute_gaps(recipe, [])
+        self.assertEqual(gaps, [])
+
+
 class TestCheckRecipeDietaryViolations(unittest.TestCase):
     """check_recipe_dietary_violations identifies violating ingredients in a recipe."""
 

@@ -2,7 +2,7 @@
 
 Autonomous Pantry is a pantry-aware cooking assistant that combines pantry scanning, persistent pantry storage, recipe generation, and shopping-cart suggestions in one local web app.
 
-The project is built as a React frontend with a FastAPI backend. A user can scan pantry items with the camera, store them in SQLite, refresh the app without losing that pantry data, and then ask for recipes based on what is already on hand.
+The project is built as a React frontend with a FastAPI backend. A user can scan pantry items with the camera, store them in SQLite, refresh the app without losing pantry data, and then ask for recipes based on what is already on hand.
 
 This is a working prototype designed for local development and demos. Core flows work, but there are still rough edges and limitations that are listed below.
 
@@ -332,6 +332,46 @@ Suggested test flow:
    - `What can I make with my pantry?`
 5. Review the recipe and shopping cart output
 
+## Developer Notes
+
+### Local workflow
+
+Use two terminals while developing:
+
+Backend:
+
+```bash
+cd backend
+.venv\Scripts\activate
+uvicorn main:app --reload --port 8000
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Important behavior
+
+- Refreshing the browser does not restart the backend. If you change Python code, restart `uvicorn`.
+- Local pantry and product-cache data are stored in `backend/app/data/pantry.db`.
+- If pricing or product resolution seems stale, clear `backend/app/data/pantry.db` and restart the backend.
+- Package/cart prices are based on the purchasable product/package, not the fractional recipe amount.
+- The cart may show a branded product name when one is available from seeded or resolved product data.
+- Store names shown during order placement currently come from the local `instacart_stub.py` heuristic, not a live retailer integration.
+- Optional placeholders such as water, toppings, or "as desired" ingredients should not become paid cart items.
+
+### Recommended smoke test
+
+1. Add `olive oil` to the pantry.
+2. Ask for `pizza`.
+3. Confirm `olive oil` is not added to the cart if it is already in pantry.
+4. Confirm `pizza sauce` appears as a packaged branded item rather than a fractional price.
+5. Confirm water or optional toppings are not added as paid items.
+
 ## Database
 
 The app uses SQLite.
@@ -388,7 +428,7 @@ This allows pantry state to persist across:
 ### Ingredient matching
 
 - pantry-to-recipe matching is heuristic-based
-- unit conversion is limited
+- unit conversion is improving but still limited in edge cases
 - ingredient naming can still mismatch in edge cases
 
 ### Pantry scanning
@@ -408,6 +448,7 @@ This allows pantry state to persist across:
 
 - the order/cart flow is a prototype
 - `instacart_stub.py` is not a real grocery integration
+- retailer names are inferred locally and do not reflect live store availability
 
 ## Future Improvements
 

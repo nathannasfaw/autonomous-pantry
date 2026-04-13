@@ -27,8 +27,23 @@ export default function CartCard({ cart, onBuy }) {
         {cart.map((item, i) => (
           <div key={i} className="flex items-center justify-between py-2.5 last:border-0" style={{ borderBottom: '1px solid #3F4147' }}>
             <div>
-              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{item.item}</span>
-              <span className="text-xs ml-2" style={{ color: 'var(--text-muted)' }}>{item.quantity} {item.unit}</span>
+              <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                {item.brand && item.product_name ? `${item.brand} ${item.product_name}` : item.item}
+              </div>
+              {item.pricing_source === 'package_pricing' && item.package_amount && item.package_unit ? (
+                <>
+                  <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    {item.packages_needed || 1} x {item.package_amount} {item.package_unit}
+                  </div>
+                  <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    Recipe needs: {item.quantity} {item.unit}
+                  </div>
+                </>
+              ) : (
+                <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  {item.quantity} {item.unit}
+                </div>
+              )}
             </div>
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: '#1a3a2a', color: '#4ade80' }}>
               ${(item.estimated_price || 0).toFixed(2)}

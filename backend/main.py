@@ -28,12 +28,16 @@ app.include_router(pantry_router, prefix="/pantry")
 
 
 
-# On startup, initialize NN (train or load weights)
+# On startup, initialize DB tables, pre-seed product cache, then load NN
 from app.services.nn_service import initialize_nn
 from app.services.pantry_store import initialize_db
+from app.services.product_cache import initialize_cache_table
+from app.data.seed_products import seed_common_ingredients
 
 
 @app.on_event("startup")
 async def startup_event():
     initialize_db()
+    initialize_cache_table()
+    seed_common_ingredients()
     initialize_nn()

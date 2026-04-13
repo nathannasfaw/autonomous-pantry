@@ -15,4 +15,4 @@ class Cart(BaseModel):
 
     @property
     def total(self) -> float:
-        return sum(item.estimated_price * item.quantity for item in self.items)
+        return sum(item.estimated_price for item in self.items)

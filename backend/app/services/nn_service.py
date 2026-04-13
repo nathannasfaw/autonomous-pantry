@@ -67,7 +67,7 @@ def _maybe_organic(item_name: str, prefer_organic: bool) -> str:
 # but reported back so the LLM can mention them in the response text.
 # ---------------------------------------------------------------------------
 ZERO_COST_STAPLES = {
-    "water", "ice", "tap water", "cold water", "warm water", "hot water",
+    "water", "ice", "tap water", "cold water", "warm water", "lukewarm water", "hot water",
     "boiling water", "cooking spray", "nonstick spray", "nonstick cooking spray",
 }
 
@@ -490,6 +490,10 @@ def initialize_nn() -> None:
 def _is_staple(item_name: str) -> bool:
     """Check if an item is a zero-cost kitchen staple."""
     normalized = item_name.lower().strip()
+    if "water" in normalized and any(
+        word in normalized for word in ("water", "warm", "lukewarm", "hot", "cold", "tap", "boiling")
+    ):
+        return True
     return normalized in ZERO_COST_STAPLES
 
 
@@ -589,7 +593,6 @@ def recommend(
     dietary_flags = [f.lower() for f in preferences.get("dietary_flags", [])]
     cuisine_weights = preferences.get("cuisine_weights", {})
     disliked = [d.lower() for d in preferences.get("disliked_ingredients", [])]
-    quality_priority = float(preferences.get("quality_priority", 0.5))
     prefer_organic = bool(preferences.get("preferred_organic", False))
 
     # Effective budget: the stricter of the total order cap and per-person × servings
@@ -656,10 +659,9 @@ def recommend(
 
             dietary_conflict = False  # passed as NN feature; always False here after hard filter
 
-            raw_price = _get_price(item_name, gap_qty, unit)
-            # Quality multiplier: 0.85x at full budget-mode, 1.15x at full quality-mode
-            quality_mult = 0.85 + (quality_priority * 0.30)
-            estimated_price = round(raw_price * quality_mult, 2)
+            from app.services import product_resolver as _pr
+            pricing = _pr.resolve_basket_pricing(item_name, gap_qty, unit)
+            estimated_price = float(pricing["estimated_price"])
             budget_remaining_ratio = max(0.0, (budget - estimated_spend) / budget) if budget > 0 else 0.0
 
             # Historical reorder: simulate with a fixed seed based on item name
@@ -682,15 +684,24 @@ def recommend(
             feature_tensor = torch.tensor([features], dtype=torch.float32)
             score = float(_model(feature_tensor).squeeze().item())
 
-            if score >= 0.5:
-                results.append({
-                    "item": _maybe_organic(item_name, prefer_organic),
-                    "quantity": round(gap_qty, 2),
-                    "unit": unit,
-                    "score": round(score, 4),
-                    "estimated_price": estimated_price,
-                })
-                estimated_spend += estimated_price
+            results.append({
+                "item": _maybe_organic(item_name, prefer_organic),
+                "brand": pricing["brand"],
+                "product_name": pricing["product_name"],
+                "quantity": round(gap_qty, 2),
+                "unit": unit,
+                "score": round(score, 4),
+                "estimated_price": estimated_price,
+                "pricing_source": pricing["pricing_source"],
+                "fallback_reason": pricing["fallback_reason"],
+                "package_amount": pricing["package_amount"],
+                "package_unit": pricing["package_unit"],
+                "package_price": pricing["package_price"],
+                "packages_needed": pricing["packages_needed"],
+                "required_amount": pricing["required_amount"],
+                "required_unit": pricing["required_unit"],
+            })
+            estimated_spend += estimated_price
 
     # Sort by score descending
     results.sort(key=lambda x: x["score"], reverse=True)

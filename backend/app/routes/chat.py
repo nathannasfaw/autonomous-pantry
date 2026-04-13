@@ -472,6 +472,7 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
     gaps = gap_analysis.compute_gaps(
         recipe_ingredients=session["full_ingredient_list"],
         pantry=session["pantry_state"],
+        recipe_name=recipe.get("name"),
     )
     session["ingredient_gaps"] = gaps
     logger.info(
