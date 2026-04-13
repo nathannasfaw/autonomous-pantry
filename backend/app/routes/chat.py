@@ -3,6 +3,7 @@ Chat routes: /chat/start and /chat/message
 """
 
 import logging
+import re
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -501,21 +502,17 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
         len(staples_assumed),
     )
 
-    # LLM Call 2: narrate cart
     cart_total = _compute_cart_total(nn_recs)
-    narration = llm_service.call_llm_cart_narration(
+    agent_message = _build_local_cart_narration(
         recipe=recipe,
         pantry=session["pantry_state"],
         gaps=gaps,
-        nn_recommendations=nn_recs,
-        preferences=session["preferences"],
         budget=llm_service.compute_effective_budget(session["preferences"]),
         cart_total=cart_total,
         staples_assumed=staples_assumed,
     )
 
     session["stage"] = "cart_proposed"
-    agent_message = narration.get("message", recipe_result.get("message", "Here's what I found!"))
     return agent_message, recipe_result
 
 
@@ -532,6 +529,83 @@ def _compute_cart_total(cart: list) -> float:
     """Compute the total estimated cost of the current cart.
     estimated_price already accounts for quantity (set by the pricing engine)."""
     return sum(item.get("estimated_price", 0) for item in cart)
+
+
+def _normalize_item_name(name: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9 ]", " ", str(name).lower()).strip()
+    return re.sub(r"\s+", " ", cleaned)
+
+
+def _format_name_list(items: list[str]) -> str:
+    values = [item for item in items if item]
+    if not values:
+        return ""
+    if len(values) == 1:
+        return values[0]
+    if len(values) == 2:
+        return f"{values[0]} and {values[1]}"
+    return f"{', '.join(values[:-1])}, and {values[-1]}"
+
+
+def _get_pantry_matches(recipe_ingredients: list, pantry: list) -> list[str]:
+    pantry_items = {str(item.get("item", "")).strip(): _normalize_item_name(item.get("item", "")) for item in pantry}
+    pantry_norms = set(pantry_items.values())
+    matches: list[str] = []
+    for ingredient in recipe_ingredients or []:
+        ingredient_name = str(ingredient.get("item", "")).strip()
+        if not ingredient_name:
+            continue
+        if _normalize_item_name(ingredient_name) in pantry_norms and ingredient_name not in matches:
+            matches.append(ingredient_name)
+    return matches
+
+
+def _build_local_cart_narration(
+    recipe: dict,
+    pantry: list,
+    gaps: list,
+    budget: float,
+    cart_total: float,
+    staples_assumed: list | None = None,
+) -> str:
+    try:
+        budget_value = float(budget)
+    except (TypeError, ValueError):
+        budget_value = 0.0
+
+    pantry_matches = _get_pantry_matches(recipe.get("ingredients", []), pantry)
+    missing_items: list[str] = []
+    for gap in gaps or []:
+        name = str(gap.get("item", "")).strip()
+        if name and name not in missing_items:
+            missing_items.append(name)
+
+    parts: list[str] = []
+    if pantry_matches:
+        parts.append(f"You already have {_format_name_list(pantry_matches)} in your pantry.")
+    if missing_items:
+        parts.append(
+            f"I added {_format_name_list(missing_items)} to cover the missing ingredients for "
+            f"{recipe.get('name', 'this recipe')}."
+        )
+    if staples_assumed:
+        parts.append(f"I'm assuming you already have {_format_name_list(staples_assumed)} on hand.")
+
+    total_with_fees = round(cart_total * (1 + GEORGIA_TAX_RATE) + DELIVERY_FEE, 2)
+    if budget_value > 0 and total_with_fees <= budget_value:
+        parts.append(
+            f"Your total is ${total_with_fees:.2f} including GA tax and delivery, "
+            f"which stays within your ${budget_value:.2f} budget."
+        )
+    elif budget_value > 0:
+        parts.append(
+            f"Your total is ${total_with_fees:.2f} including GA tax and delivery, "
+            f"which is slightly over your ${budget_value:.2f} budget."
+        )
+    else:
+        parts.append(f"Your total is ${total_with_fees:.2f} including GA tax and delivery.")
+
+    return " ".join(parts).strip()
 
 
 def _parse_time_minutes(time_str: str) -> int:

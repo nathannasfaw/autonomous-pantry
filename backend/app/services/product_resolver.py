@@ -121,6 +121,10 @@ _COUNT_UNITS = {
     "packets",
     "pack",
     "packs",
+    "package",
+    "packages",
+    "pkg",
+    "pkgs",
     "can",
     "cans",
     "jar",
@@ -129,6 +133,16 @@ _COUNT_UNITS = {
     "bottles",
     "bag",
     "bags",
+    "box",
+    "boxes",
+    "carton",
+    "cartons",
+    "container",
+    "containers",
+    "tub",
+    "tubs",
+    "pouch",
+    "pouches",
     "bunch",
     "bunches",
     "head",
@@ -139,6 +153,28 @@ _COUNT_UNITS = {
     "stalks",
     "leaf",
     "leaves",
+}
+
+_INGREDIENT_MASS_PER_CUP_G: dict[str, float] = {
+    "flour": 120.0,
+    "all purpose flour": 120.0,
+    "bread flour": 120.0,
+    "whole wheat flour": 120.0,
+    "sugar": 200.0,
+    "granulated sugar": 200.0,
+    "white sugar": 200.0,
+    "caster sugar": 200.0,
+    "brown sugar": 220.0,
+    "powdered sugar": 120.0,
+    "salt": 288.0,
+    "kosher salt": 230.0,
+    "sea salt": 288.0,
+    "mozzarella": 113.0,
+    "mozzarella cheese": 113.0,
+    "parmesan": 100.0,
+    "cheddar": 113.0,
+    "tomato sauce": 245.0,
+    "pizza sauce": 245.0,
 }
 
 
@@ -154,11 +190,23 @@ def _unit_family(unit: str) -> str:
     return "unknown"
 
 
+def _grams_per_cup_for_ingredient(ingredient_name: str | None) -> float | None:
+    """Return an ingredient-aware grams-per-cup estimate when we know one."""
+    if not ingredient_name:
+        return None
+
+    for candidate in _candidate_cache_keys(ingredient_name):
+        if candidate in _INGREDIENT_MASS_PER_CUP_G:
+            return _INGREDIENT_MASS_PER_CUP_G[candidate]
+    return None
+
+
 def convert_recipe_to_package_units(
     recipe_qty: float,
     recipe_unit: str,
     pkg_amount: float,
     pkg_unit: str,
+    ingredient_name: str | None = None,
 ) -> Optional[tuple[float, float]]:
     """
     Convert recipe_qty (in recipe_unit) and pkg_amount (in pkg_unit) into a
@@ -170,6 +218,21 @@ def convert_recipe_to_package_units(
     p_unit = pkg_unit.lower().strip()
 
     if r_unit in _TO_G and p_unit in _TO_G:
+        grams_per_cup = _grams_per_cup_for_ingredient(ingredient_name)
+        if grams_per_cup is not None:
+            mass_units = {"cup", "cups", "tbsp", "tablespoon", "tablespoons", "tsp", "teaspoon", "teaspoons"}
+
+            def _to_grams(amount: float, unit: str) -> float:
+                if unit in ("cup", "cups"):
+                    return amount * grams_per_cup
+                if unit in ("tbsp", "tablespoon", "tablespoons"):
+                    return amount * (grams_per_cup / 16.0)
+                if unit in ("tsp", "teaspoon", "teaspoons"):
+                    return amount * (grams_per_cup / 48.0)
+                return amount * _TO_G[unit]
+
+            if r_unit in mass_units or p_unit in mass_units:
+                return _to_grams(recipe_qty, r_unit), _to_grams(pkg_amount, p_unit)
         return recipe_qty * _TO_G[r_unit], pkg_amount * _TO_G[p_unit]
     if r_unit in _TO_ML and p_unit in _TO_ML:
         return recipe_qty * _TO_ML[r_unit], pkg_amount * _TO_ML[p_unit]
@@ -190,6 +253,9 @@ _CACHE_KEY_ALIASES: dict[str, tuple[str, ...]] = {
     "egg": ("egg", "eggs"),
     "eggs": ("eggs", "egg"),
     "mozzarella cheese": ("mozzarella",),
+    "shredded mozzarella": ("mozzarella",),
+    "shredded mozzarella cheese": ("mozzarella",),
+    "mozzarella cheese shredded": ("mozzarella",),
     "kosher salt": ("salt",),
     "sea salt": ("salt",),
     "table salt": ("salt",),
@@ -203,6 +269,21 @@ _CACHE_KEY_ALIASES: dict[str, tuple[str, ...]] = {
     "pizza sauce": ("tomato sauce",),
 }
 
+_DESCRIPTOR_WORDS = {
+    "organic",
+    "fresh",
+    "dried",
+    "shredded",
+    "grated",
+    "chopped",
+    "minced",
+    "sliced",
+    "crushed",
+    "pure",
+    "natural",
+    "plain",
+}
+
 
 def normalize_ingredient_key(name: str) -> str:
     """Lower-case, strip, collapse whitespace, and smooth punctuation."""
@@ -210,6 +291,12 @@ def normalize_ingredient_key(name: str) -> str:
     lowered = re.sub(r"[-_/]+", " ", lowered)
     lowered = re.sub(r"[^\w\s]", "", lowered)
     return re.sub(r"\s+", " ", lowered)
+
+
+def _strip_descriptors(key: str) -> str:
+    """Drop generic preparation/marketing descriptors to reveal the core ingredient."""
+    words = [word for word in key.split() if word not in _DESCRIPTOR_WORDS]
+    return " ".join(words).strip()
 
 
 def _candidate_cache_keys(name: str) -> list[str]:
@@ -220,6 +307,13 @@ def _candidate_cache_keys(name: str) -> list[str]:
     for alias in _CACHE_KEY_ALIASES.get(key, ()):
         if alias not in candidates:
             candidates.append(alias)
+
+    simplified = _strip_descriptors(key)
+    if simplified and simplified != key and simplified not in candidates:
+        candidates.append(simplified)
+        for alias in _CACHE_KEY_ALIASES.get(simplified, ()):
+            if alias not in candidates:
+                candidates.append(alias)
 
     if key.endswith("es") and len(key) > 2:
         singular = key[:-2]
@@ -456,7 +550,13 @@ def resolve_basket_pricing(
     result["package_unit"] = pkg_unit
     result["package_price"] = round(pkg_price, 2)
 
-    converted = convert_recipe_to_package_units(recipe_qty, recipe_unit, pkg_amount, pkg_unit)
+    converted = convert_recipe_to_package_units(
+        recipe_qty,
+        recipe_unit,
+        pkg_amount,
+        pkg_unit,
+        ingredient_name=item_name,
+    )
     if converted is None:
         result["estimated_price"] = round(_heuristic_price(item_name, recipe_qty, recipe_unit), 2)
         result["fallback_reason"] = "unit_conversion_failed"

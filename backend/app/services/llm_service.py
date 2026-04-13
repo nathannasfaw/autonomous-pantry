@@ -392,6 +392,22 @@ def _build_recipe_failure(normalized_query: str, pantry: list | None, reason: st
     }
 
 
+def _build_recipe_lookup_user_input(normalized_query: str, specific_request: bool, target_servings: int) -> str:
+    """Build a strict user prompt that reinforces the required JSON contract."""
+    if specific_request:
+        return (
+            f"Find one trustworthy recipe for {normalized_query!r} scaled to exactly {target_servings} servings. "
+            "Return exactly one JSON object matching the schema from the system prompt. "
+            "Do not ask follow-up questions. Do not return prose, bullets, or markdown. "
+            "Allowed statuses for this request are recipe_found or recipe_lookup_failed."
+        )
+    return (
+        f"Suggest meal ideas scaled to exactly {target_servings} servings. "
+        "Return exactly one JSON object matching the schema from the system prompt. "
+        "Do not return prose outside the JSON object."
+    )
+
+
 def _attempt_recipe_lookup(
     *,
     system: str,
@@ -399,6 +415,7 @@ def _attempt_recipe_lookup(
     normalized_query: str,
     pantry: list | None,
     retry_on_failure: bool,
+    specific_request: bool,
 ) -> dict:
     raw_text = _run_agentic_loop(system, user_input, tools=[WEB_SEARCH_TOOL])
     parsed = _parse_json_response(raw_text)
@@ -425,11 +442,40 @@ RETRY INSTRUCTION:
                 normalized_query=normalized_query,
                 pantry=pantry,
                 retry_on_failure=False,
+                specific_request=specific_request,
             )
         return _build_recipe_failure(normalized_query, pantry, "unparseable_llm_response")
 
     parsed.setdefault("normalized_query", normalized_query)
     status = parsed.get("status")
+
+    if specific_request and status == "options_presented":
+        logger.warning(
+            "Specific recipe request returned options instead of a recipe: normalized=%r retry=%s payload=%r",
+            normalized_query,
+            retry_on_failure,
+            parsed,
+        )
+        if retry_on_failure:
+            retry_system = system + f"""
+
+RETRY INSTRUCTION:
+- The user asked for a specific dish: {json.dumps(normalized_query)}.
+- Do NOT return status "options_presented".
+- Return either:
+  1. status "recipe_found" with a complete recipe object, or
+  2. status "recipe_lookup_failed" with a short explanation.
+- Return exactly one valid JSON object and nothing else.
+"""
+            return _attempt_recipe_lookup(
+                system=retry_system,
+                user_input=user_input,
+                normalized_query=normalized_query,
+                pantry=pantry,
+                retry_on_failure=False,
+                specific_request=specific_request,
+            )
+        return _build_recipe_failure(normalized_query, pantry, "returned_options_for_specific_request")
 
     if status == "recipe_found":
         valid, reason = _validate_recipe_payload(parsed.get("recipe"), normalized_query)
@@ -456,6 +502,7 @@ RETRY INSTRUCTION:
                     normalized_query=normalized_query,
                     pantry=pantry,
                     retry_on_failure=False,
+                    specific_request=specific_request,
                 )
             return _build_recipe_failure(normalized_query, pantry, reason)
 
@@ -612,12 +659,14 @@ For SPECIFIC dish requests or user selecting an option, search then return:
 }}"""
 
     try:
+        user_input = _build_recipe_lookup_user_input(normalized_query, specific_request, target_servings)
         return _attempt_recipe_lookup(
             system=system,
-            user_input=normalized_query if specific_request else user_message,
+            user_input=user_input,
             normalized_query=normalized_query,
             pantry=pantry,
             retry_on_failure=True,
+            specific_request=specific_request,
         )
     except Exception as exc:
         logger.error("LLM Call 1 error for normalized=%r: %s", normalized_query, exc)

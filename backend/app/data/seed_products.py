@@ -49,6 +49,7 @@ SEED_CATALOGUE: list[dict] = [
     {"ingredient_key": "sea salt",         "product_name": "Sea Salt",                 "brand": "Morton",        "package_amount": 17.6,  "package_unit": "oz",    "estimated_price": 2.99},
     {"ingredient_key": "fine sea salt",    "product_name": "Sea Salt",                 "brand": "Morton",        "package_amount": 17.6,  "package_unit": "oz",    "estimated_price": 2.99},
     {"ingredient_key": "coarse salt",      "product_name": "Kosher Salt",              "brand": "Morton",        "package_amount": 16.0,  "package_unit": "oz",    "estimated_price": 2.49},
+    {"ingredient_key": "oregano",          "product_name": "Oregano Leaves",           "brand": "McCormick",     "package_amount": 0.75,  "package_unit": "oz",    "estimated_price": 3.49},
     {"ingredient_key": "vanilla extract",  "product_name": "Pure Vanilla Extract",     "brand": "McCormick",     "package_amount": 2.0,   "package_unit": "fl oz", "estimated_price": 5.49},
     {"ingredient_key": "vanilla",          "product_name": "Pure Vanilla Extract",     "brand": "McCormick",     "package_amount": 2.0,   "package_unit": "fl oz", "estimated_price": 5.49},
     {"ingredient_key": "cocoa powder",     "product_name": "Unsweetened Cocoa Powder", "brand": "Hershey's",     "package_amount": 8.0,   "package_unit": "oz",    "estimated_price": 3.99},

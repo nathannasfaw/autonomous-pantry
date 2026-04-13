@@ -117,7 +117,13 @@ def _estimate_available_in_recipe_units(
 
     from app.services import product_resolver as pr
 
-    direct = pr.convert_recipe_to_package_units(raw_available, pantry_unit, 1.0, recipe_unit)
+    direct = pr.convert_recipe_to_package_units(
+        raw_available,
+        pantry_unit,
+        1.0,
+        recipe_unit,
+        ingredient_name=item_name,
+    )
     if direct is not None:
         available_base, recipe_unit_base = direct
         if recipe_unit_base > 0:
@@ -131,6 +137,7 @@ def _estimate_available_in_recipe_units(
                 recipe_unit,
                 float(product["package_amount"]),
                 str(product["package_unit"]),
+                ingredient_name=item_name,
             )
             if converted is not None:
                 recipe_unit_base, pkg_base = converted

@@ -15,6 +15,7 @@ import unittest
 from unittest.mock import patch
 
 from app.services import product_cache, product_resolver as pr
+from app.services import off_client
 from app.data.seed_products import SEED_CATALOGUE, seed_common_ingredients
 from app.models.cart import Cart, CartItem
 
@@ -161,6 +162,20 @@ class TestCacheHitSkipsOFF(unittest.TestCase):
         pr.get_product("eggs", db_path=self.db)
         mock_search.assert_not_called()
 
+    @patch("app.services.off_client.search_product")
+    def test_descriptor_variant_uses_seeded_tomato_sauce_without_off(self, mock_search):
+        result = pr.get_product("organic tomato sauce", db_path=self.db)
+        mock_search.assert_not_called()
+        self.assertIsNotNone(result)
+        self.assertEqual(result["product_name"], "Tomato Sauce")
+
+    @patch("app.services.off_client.search_product")
+    def test_descriptor_variant_uses_seeded_oregano_without_off(self, mock_search):
+        result = pr.get_product("dried oregano", db_path=self.db)
+        mock_search.assert_not_called()
+        self.assertIsNotNone(result)
+        self.assertEqual(result["product_name"], "Oregano Leaves")
+
 
 # ---------------------------------------------------------------------------
 # 4. Cache miss calls OFF once and stores result
@@ -293,6 +308,26 @@ class TestParsePackageQuantity(unittest.TestCase):
         self.assertEqual(unit, "tsp")
 
 
+class TestOFFCandidateSelection(unittest.TestCase):
+    def test_rejects_weak_partial_match_for_tomato_sauce(self):
+        products = [
+            {"product_name": "Heinz Tomato Ketchup BIO", "brands": "Heinz", "quantity": "580 g"},
+        ]
+        result = off_client.pick_best_candidate(products, "organic tomato sauce")
+        self.assertIsNone(result)
+
+    def test_rejects_weak_partial_match_for_oregano(self):
+        products = [
+            {
+                "product_name": "Semi Dried Tomatoes with Garlic and Oregano",
+                "brands": "Dunnes stores",
+                "quantity": "210 g",
+            },
+        ]
+        result = off_client.pick_best_candidate(products, "dried oregano")
+        self.assertIsNone(result)
+
+
 # ---------------------------------------------------------------------------
 # 7. Unit conversion
 # ---------------------------------------------------------------------------
@@ -311,6 +346,11 @@ class TestUnitConversion(unittest.TestCase):
         r, p = pr.convert_recipe_to_package_units(1.0, "cup", 100.0, "g")
         self.assertAlmostEqual(r, 201.6, places=1)
         self.assertAlmostEqual(p, 100.0, places=1)
+
+    def test_ingredient_aware_cup_to_mass_conversion_for_mozzarella(self):
+        r, p = pr.convert_recipe_to_package_units(1.0, "cup", 200.0, "g", ingredient_name="mozzarella")
+        self.assertAlmostEqual(r, 113.0, places=1)
+        self.assertAlmostEqual(p, 200.0, places=1)
 
     def test_count_to_count(self):
         r, p = pr.convert_recipe_to_package_units(3.0, "count", 12.0, "count")
@@ -398,6 +438,11 @@ class TestPackagePricing(unittest.TestCase):
         result = pr.resolve_basket_pricing("all purpose flour", 2.0, "cup", db_path=self.db)
         self.assertEqual(result["pricing_source"], "package_pricing")
         self.assertAlmostEqual(result["estimated_price"], 4.49, places=2)
+
+    def test_shredded_mozzarella_alias_resolves_to_seeded_product(self):
+        result = pr.resolve_basket_pricing("mozzarella cheese, shredded", 1.0, "cup", db_path=self.db)
+        self.assertEqual(result["pricing_source"], "package_pricing")
+        self.assertEqual(result["product_name"], "Low-Moisture Mozzarella")
 
     def test_salt_and_sugar_variants_use_package_pricing(self):
         cases = (

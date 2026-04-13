@@ -468,6 +468,24 @@ class TestGapAndCartCompleteness(unittest.TestCase):
         gaps = compute_gaps(recipe, pantry)
         self.assertEqual(gaps, [])
 
+    def test_mozzarella_gap_is_satisfied_by_gram_quantity_in_pantry(self):
+        from app.services.gap_analysis import compute_gaps
+
+        recipe = [{"item": "mozzarella", "quantity": 1.0, "unit": "cup"}]
+        pantry = [{"item": "mozzarella", "quantity": 200.0, "unit": "g", "confidence": 1.0}]
+
+        gaps = compute_gaps(recipe, pantry)
+        self.assertEqual(gaps, [])
+
+    def test_mozzarella_gap_is_satisfied_by_one_package_in_pantry(self):
+        from app.services.gap_analysis import compute_gaps
+
+        recipe = [{"item": "mozzarella", "quantity": 1.0, "unit": "cup"}]
+        pantry = [{"item": "mozzarella", "quantity": 1.0, "unit": "package", "confidence": 1.0}]
+
+        gaps = compute_gaps(recipe, pantry)
+        self.assertEqual(gaps, [])
+
     def test_recipe_echo_ingredient_is_excluded_from_gaps(self):
         from app.services.gap_analysis import compute_gaps
 
@@ -747,6 +765,57 @@ class TestIntentRouting(unittest.TestCase):
 
     def test_generic_question_is_rejected(self):
         self.assertFalse(self.classify("What is the weather like?"))
+
+
+class TestLLMRecipeLookupRobustness(unittest.TestCase):
+    def setUp(self):
+        from app.services.llm_service import is_explicit_recipe_request
+        self.classify = is_explicit_recipe_request
+
+    def test_call_llm_recipe_uses_strict_json_user_prompt_for_specific_request(self):
+        from app.services import llm_service
+
+        with patch("app.services.llm_service._attempt_recipe_lookup") as mock_attempt:
+            mock_attempt.return_value = {
+                "status": "recipe_lookup_failed",
+                "message": "no recipe",
+                "recipe": None,
+                "normalized_query": "pizza",
+            }
+            llm_service.call_llm_recipe(
+                user_message="I want to make pizza",
+                calendar={},
+                preferences={"serving_size": 2},
+                messages=[],
+                pantry=[],
+            )
+
+        self.assertIn("Return exactly one JSON object", mock_attempt.call_args.kwargs["user_input"])
+        self.assertTrue(mock_attempt.call_args.kwargs["specific_request"])
+
+    def test_specific_request_does_not_accept_options_presented_payload(self):
+        from app.services import llm_service
+
+        raw_options = json.dumps({
+            "status": "options_presented",
+            "message": "Here are ideas",
+            "options": [{"name": "Pizza"}],
+            "recipe": None,
+            "normalized_query": "pizza",
+        })
+
+        with patch("app.services.llm_service._run_agentic_loop", side_effect=[raw_options, raw_options]):
+            result = llm_service._attempt_recipe_lookup(
+                system="test",
+                user_input="Find pizza as JSON only.",
+                normalized_query="pizza",
+                pantry=[],
+                retry_on_failure=True,
+                specific_request=True,
+            )
+
+        self.assertEqual(result["status"], "recipe_lookup_failed")
+        self.assertEqual(result["failure_reason"], "returned_options_for_specific_request")
 
     def test_empty_message_is_rejected(self):
         self.assertFalse(self.classify(""))
@@ -1056,6 +1125,8 @@ class TestMultiTurnStateCorrectness(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(session["stage"], "cart_proposed")
             self.assertEqual(session["recipe"]["name"], "Margherita Pizza")
             self.assertEqual(session["presented_options"], [])
+            mock_llm.call_llm_cart_narration.assert_not_called()
+            self.assertIn("$", resp1.message)
 
             # ── Turn 2: ask for alternatives ───────────────────────────
             mock_llm.is_explicit_recipe_request.return_value = True
