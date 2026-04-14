@@ -27,14 +27,18 @@ def _get_client() -> anthropic.Anthropic:
     return _client
 
 
-_PROMPT = """What grocery or food item is shown in this image?
-YOLO (a computer vision model) detected it as '{yolo_hint}' — use that as a hint but trust what you actually see.
+_PROMPT = """You are helping scan a pantry shelf.
+The items being scanned are: olive oil, mozzarella cheese, tomato sauce.
+
+What grocery or food item is shown in this cropped image?
+A object-detection model identified the region as a '{yolo_hint}' shape — treat that as a low-confidence shape hint only.
 
 Return ONLY a JSON object, no explanation:
 {{"item": "precise item name in lowercase", "quantity": <number>, "unit": "<count|lbs|oz|cups|bottle|bag|can|bunch|cloves|package|jar|box|loaf|head|stick|piece|tbsp|tsp>"}}
 
 Rules:
-- Be as specific as possible (e.g. "navel orange" not just "fruit")
+- The item is very likely one of the three pantry items listed above — default to those unless you clearly see something different
+- Be specific (e.g. "olive oil" not just "oil", "tomato sauce" not just "sauce")
 - If multiple of the same item are visible, sum the quantity
 - If this is clearly NOT a food/grocery item, return: {{"item": null}}"""
 

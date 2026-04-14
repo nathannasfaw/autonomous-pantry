@@ -41,7 +41,7 @@ export default function ChatWindow({ messages, isLoading, sendMessage, conversat
           {messages.length === 0 && !isLoading ? (
             <div className="flex flex-col items-center justify-center min-h-[65vh] text-center">
               <div className="mb-6">
-                <img src={chefLogo} alt="Autonomous Pantry" className="w-16 h-16" />
+                <img src={chefLogo} alt="KitchenSync" className="w-16 h-16" />
               </div>
               <h2 className="text-2xl font-semibold mb-1 tracking-tight" style={{ color: 'var(--text-primary)' }}>
                 Hope the day's treating you well

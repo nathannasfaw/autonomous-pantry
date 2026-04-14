@@ -6,3 +6,5 @@ pydantic
 python-dotenv
 ultralytics
 pillow
+torchvision
+transformers

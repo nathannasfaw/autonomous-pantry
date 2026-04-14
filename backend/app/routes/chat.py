@@ -506,6 +506,7 @@ async def _handle_idle(session: dict, user_message: str) -> tuple[str, dict]:
     agent_message = _build_local_cart_narration(
         recipe=recipe,
         pantry=session["pantry_state"],
+        cart_items=nn_recs,
         gaps=gaps,
         budget=llm_service.compute_effective_budget(session["preferences"]),
         cart_total=cart_total,
@@ -563,33 +564,98 @@ def _get_pantry_matches(recipe_ingredients: list, pantry: list) -> list[str]:
 def _build_local_cart_narration(
     recipe: dict,
     pantry: list,
+    cart_items: list,
     gaps: list,
     budget: float,
     cart_total: float,
     staples_assumed: list | None = None,
 ) -> str:
+    """
+    Build the assistant response from the **resolved cart** as the single source of truth.
+
+    Categories (mutually exclusive, covering all gap items):
+      - already_in_pantry  : matched from pantry; not in gaps at all
+      - priced_cart_item   : in cart_items (nn_recs); these are what drive cart_total
+      - assumed_staple     : in staples_assumed; zero-cost, excluded from total
+      - unresolved         : in gaps but absent from both cart_items and staples (e.g.
+                             dietary-filtered); logged as a warning, not mentioned to user
+
+    The response text mentions only items that are in one of the first three categories,
+    and the total is always computed from cart_items — never from gaps.
+    """
     try:
         budget_value = float(budget)
     except (TypeError, ValueError):
         budget_value = 0.0
 
+    # --- Resolve categories ------------------------------------------------
     pantry_matches = _get_pantry_matches(recipe.get("ingredients", []), pantry)
-    missing_items: list[str] = []
+
+    # priced_cart_item: derive names from the actual resolved/priced cart
+    priced_items: list[str] = []
+    for item in cart_items or []:
+        name = str(item.get("item", "")).strip()
+        if name and name not in priced_items:
+            priced_items.append(name)
+
+    staple_names: list[str] = list(staples_assumed or [])
+
+    # Safeguard: find gap items that ended up in neither cart nor staples
+    accounted_norms = {_normalize_item_name(n) for n in priced_items + staple_names}
+    unresolved: list[str] = []
     for gap in gaps or []:
         name = str(gap.get("item", "")).strip()
-        if name and name not in missing_items:
-            missing_items.append(name)
+        if name and _normalize_item_name(name) not in accounted_norms:
+            unresolved.append(name)
 
+    # Log the resolved breakdown for every request
+    logger.debug(
+        "Cart narration breakdown | recipe=%r | pantry_matches=%r | priced_cart=%r "
+        "| staples=%r | unresolved=%r | cart_total=%.2f",
+        recipe.get("name"),
+        pantry_matches,
+        priced_items,
+        staple_names,
+        unresolved,
+        cart_total,
+    )
+    if unresolved:
+        logger.warning(
+            "Unresolved gap items (not in cart or staples, likely dietary-filtered) "
+            "for recipe %r: %r",
+            recipe.get("name"),
+            unresolved,
+        )
+
+    # Consistency check: the text mentions exactly what was priced
+    # (priced_items + staple_names exhausts what we tell the user about)
+    described_count = len(priced_items) + len(staple_names)
+    gap_count = len(gaps or [])
+    if described_count != gap_count:
+        logger.debug(
+            "Gap count mismatch: gaps=%d described=%d (priced=%d staples=%d unresolved=%d) "
+            "for recipe %r — unresolved items are dietary-filtered or otherwise excluded",
+            gap_count, described_count, len(priced_items), len(staple_names),
+            len(unresolved), recipe.get("name"),
+        )
+
+    # --- Build the response text from resolved categories ------------------
     parts: list[str] = []
+
     if pantry_matches:
         parts.append(f"You already have {_format_name_list(pantry_matches)} in your pantry.")
-    if missing_items:
+
+    if priced_items:
         parts.append(
-            f"I added {_format_name_list(missing_items)} to cover the missing ingredients for "
+            f"I added {_format_name_list(priced_items)} to your cart for "
             f"{recipe.get('name', 'this recipe')}."
         )
-    if staples_assumed:
-        parts.append(f"I'm assuming you already have {_format_name_list(staples_assumed)} on hand.")
+
+    if staple_names:
+        parts.append(
+            f"I treated {_format_name_list(staple_names)} as a pantry staple, "
+            f"so {'it was' if len(staple_names) == 1 else 'they were'} not included in the price."
+        )
 
     total_with_fees = round(cart_total * (1 + GEORGIA_TAX_RATE) + DELIVERY_FEE, 2)
     if budget_value > 0 and total_with_fees <= budget_value:

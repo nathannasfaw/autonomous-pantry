@@ -7,9 +7,9 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.services import pantry_store, session_manager
+from app.services.detector_adapters import detect_final_candidates, detect_live_frame
+from app.services import pantry_store, scan_tracker, session_manager
 from app.services.vision_service import identify_crop
-from app.services.yolo_service import detect
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,7 @@ class ScanRequest(BaseModel):
     image: str
     media_type: str = "image/jpeg"
     conversation_id: str | None = None
+    scan_session_id: str | None = None
 
 
 class ScanResponse(BaseModel):
@@ -28,11 +29,29 @@ class ScanResponse(BaseModel):
     width: int
     height: int
     merged_into_session: bool = False
+    debug: dict | None = None
+    scan_session_id: str | None = None
 
 
 class CropRequest(BaseModel):
     image: str
     yolo_class: str
+
+
+class FinalizeScanRequest(BaseModel):
+    scan_session_id: str
+    conversation_id: str | None = None
+
+
+class FinalizeScanResponse(BaseModel):
+    items: list[dict]
+    debug: dict | None = None
+    scan_session_id: str
+
+
+class ResetScanRequest(BaseModel):
+    scan_session_id: str
+    conversation_id: str | None = None
 
 
 class PantryUpdateRequest(BaseModel):
@@ -45,36 +64,35 @@ class PantryUpdateRequest(BaseModel):
 async def scan_pantry(request: ScanRequest):
     """
     Run YOLO detection on a captured frame.
-    When a conversation id is supplied, the scan is persisted as pantry data,
-    but it is not routed into the chat message stream.
+    Live scanning is detector-only; final verification happens in /finalize-scan.
     """
     if not request.image:
         raise HTTPException(status_code=400, detail="No image data provided")
 
     try:
-        result = detect(request.image, request.media_type)
+        detect_result = detect_live_frame(request.image, request.media_type)
     except Exception as exc:
         logger.exception("YOLO scan failed")
         raise HTTPException(status_code=500, detail=f"YOLO scan failed: {exc}") from exc
 
-    merged = False
-    if request.conversation_id:
-        session = session_manager.get_session(request.conversation_id)
-        if session is not None:
-            session["pantry_state"] = pantry_store.upsert_items(session["client_id"], result["items"])
-            merged = True
-            logger.info(
-                "Persisted %d scanned items for session %s",
-                len(result["items"]),
-                request.conversation_id,
-            )
+    result = detect_result
+    if request.scan_session_id:
+        result = scan_tracker.update_scan(
+            scan_session_id=request.scan_session_id,
+            conversation_id=request.conversation_id,
+            image_b64=request.image,
+            detect_result=detect_result,
+            verify_fn=identify_crop,
+        )
 
     return ScanResponse(
         items=result["items"],
         boxes=result["boxes"],
         width=result["width"],
         height=result["height"],
-        merged_into_session=merged,
+        merged_into_session=False,
+        debug=result.get("debug"),
+        scan_session_id=result.get("scan_session_id"),
     )
 
 
@@ -87,6 +105,32 @@ async def identify_crop_endpoint(request: CropRequest):
     if result is None:
         return {"item": None}
     return result
+
+
+@router.post("/finalize-scan", response_model=FinalizeScanResponse)
+async def finalize_scan_endpoint(request: FinalizeScanRequest):
+    try:
+        result = scan_tracker.finalize_scan(
+            scan_session_id=request.scan_session_id,
+            conversation_id=request.conversation_id,
+            verify_fn=identify_crop,
+            final_detect_fn=detect_final_candidates,
+        )
+    except Exception as exc:
+        logger.exception("Pantry scan finalization failed")
+        raise HTTPException(status_code=500, detail=f"Pantry scan finalization failed: {exc}") from exc
+
+    return FinalizeScanResponse(
+        items=result["items"],
+        debug=result.get("debug"),
+        scan_session_id=result["scan_session_id"],
+    )
+
+
+@router.post("/reset-scan")
+async def reset_scan_endpoint(request: ResetScanRequest):
+    scan_tracker.reset_scan_session(request.scan_session_id, request.conversation_id)
+    return {"status": "ok"}
 
 
 @router.post("/update")

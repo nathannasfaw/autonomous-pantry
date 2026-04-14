@@ -6,9 +6,14 @@ const CartIcon = ({ size = 16, className = '' }) => (
   </svg>
 )
 
+const TAX_RATE = 0.04
+const DELIVERY_FEE = 4.99
+
 export default function CartCard({ cart, onBuy }) {
   if (!cart || cart.length === 0) return null
-  const total = cart.reduce((sum, item) => sum + (item.estimated_price || 0), 0)
+  const subtotal = cart.reduce((sum, item) => sum + (item.estimated_price || 0), 0)
+  const tax = subtotal * TAX_RATE
+  const total = subtotal + tax + DELIVERY_FEE
 
   return (
     <div className="card-entrance rounded-2xl overflow-hidden w-full"
@@ -51,10 +56,24 @@ export default function CartCard({ cart, onBuy }) {
           </div>
         ))}
 
-        {/* Total */}
-        <div className="flex items-center justify-between mt-2 pt-3" style={{ borderTop: '2px solid #4F5159' }}>
-          <span className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Total</span>
-          <span className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>${total.toFixed(2)}</span>
+        {/* Subtotal, tax, delivery, total */}
+        <div className="mt-2 pt-3" style={{ borderTop: '2px solid #4F5159' }}>
+          <div className="flex items-center justify-between py-1">
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Subtotal</span>
+            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>${subtotal.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between py-1">
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>GA Tax (4%)</span>
+            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>${tax.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between py-1">
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Delivery</span>
+            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>${DELIVERY_FEE.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between mt-1.5 pt-2" style={{ borderTop: '1px solid #3F4147' }}>
+            <span className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Total</span>
+            <span className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>${total.toFixed(2)}</span>
+          </div>
         </div>
 
         {/* Buy button */}

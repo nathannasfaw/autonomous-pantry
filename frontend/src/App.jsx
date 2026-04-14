@@ -4,6 +4,9 @@ import { usePantry } from './hooks/usePantry'
 import ChatWindow from './components/ChatWindow'
 import PreferencesPanel from './components/PreferencesPanel'
 import PantryPanel from './components/PantryPanel'
+import SettingsPanel from './components/SettingsPanel'
+import LoginModal from './components/LoginModal'
+import { ThemeProvider } from './context/ThemeContext'
 import chefLogo from './assets/logo.png'
 
 const PlusIcon = () => (
@@ -74,6 +77,7 @@ export default function App() {
   )
 
   return (
+    <ThemeProvider>
     <div className="h-screen flex" style={{ background: 'var(--bg-page)' }}>
 
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
@@ -84,9 +88,8 @@ export default function App() {
         {/* Brand */}
         <div className="px-4 pb-3 mb-1 flex items-center gap-2.5"
           style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
-          <img src={chefLogo} alt="Autonomous Pantry" className="w-7 h-7 rounded-lg object-cover" />
-          <span className="font-semibold text-sm leading-tight" style={{ color: 'var(--text-primary)' }}>
-            Autonomous Pantry
+          <span className="font-bold text-xl leading-tight tracking-tight">
+            <span style={{ color: '#5B8FCC' }}>Kitchen</span><span style={{ color: '#4A9A9A' }}>Sync</span>
           </span>
         </div>
 
@@ -106,7 +109,11 @@ export default function App() {
 
         {/* Footer */}
         <div className="px-4 pt-3" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>AI-powered grocery assistant</p>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>AI-powered grocery assistant</p>
+          <div className="flex items-center gap-2">
+            <SettingsPanel />
+            <LoginModal />
+          </div>
         </div>
       </aside>
 
@@ -135,5 +142,6 @@ export default function App() {
         )}
       </main>
     </div>
+    </ThemeProvider>
   )
 }

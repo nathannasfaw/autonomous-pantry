@@ -7,10 +7,19 @@
   --bg-page: #313338;
   --bg-darkest: #1E1F22;
   --bg-card: #36393F;
+  --bg-input: #3F4147;
+  --bg-popover: #2B2D31;
   --sidebar-border: #3F4147;
   --text-primary: #DCDDDE;
   --text-secondary: #96989D;
   --text-muted: #72767D;
+  --icon-btn-bg: rgba(255,255,255,0.06);
+  --icon-btn-hover: rgba(255,255,255,0.12);
+  --modal-overlay: rgba(0,0,0,0.6);
+  --modal-bg: #2B2D31;
+  --modal-border: #3F4147;
+  --input-border: #4F5159;
+  --input-focus-border: #5B8FCC;
 
   --user-bubble-bg: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
   --agent-bubble-bg: #36393F;
@@ -21,12 +30,41 @@
   --card-success-header: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
   --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.3);
   --shadow-input: 0 2px 20px rgba(0, 0, 0, 0.25);
+  --shadow-popover: 0 8px 32px rgba(0,0,0,0.45);
 
   --gradient-primary: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
   --gradient-recipe: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
   --gradient-cart: linear-gradient(135deg, #0D5E9D 0%, #074a7a 100%);
   --gradient-success: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
 
+  --bubble-agent-bg: var(--agent-bubble-bg);
+  --bubble-agent-border: var(--agent-bubble-border);
+}
+
+/* ── Light mode overrides ──────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-sidebar: #F0F2F4;
+  --bg-page: #FFFFFF;
+  --bg-darkest: #E3E5E8;
+  --bg-card: #FFFFFF;
+  --bg-input: #F0F2F4;
+  --bg-popover: #FFFFFF;
+  --sidebar-border: #D8DADD;
+  --text-primary: #1A1B1E;
+  --text-secondary: #4E5058;
+  --text-muted: #81848C;
+  --icon-btn-bg: rgba(0,0,0,0.05);
+  --icon-btn-hover: rgba(0,0,0,0.10);
+  --modal-overlay: rgba(0,0,0,0.35);
+  --modal-bg: #FFFFFF;
+  --modal-border: #D8DADD;
+  --input-border: #C9CBCE;
+  --input-focus-border: #5B8FCC;
+  --agent-bubble-bg: #F0F2F4;
+  --agent-bubble-border: #D8DADD;
+  --shadow-card: 0 2px 10px rgba(0,0,0,0.10);
+  --shadow-input: 0 2px 20px rgba(0,0,0,0.08);
+  --shadow-popover: 0 8px 32px rgba(0,0,0,0.15);
   --bubble-agent-bg: var(--agent-bubble-bg);
   --bubble-agent-border: var(--agent-bubble-border);
 }
