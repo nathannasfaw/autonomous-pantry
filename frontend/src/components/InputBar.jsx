@@ -55,12 +55,12 @@ export default function InputBar({ onSend, isLoading, conversationId, onItemsAdd
   return (
     <>
       <div className="px-6 pb-6 pt-3 flex-shrink-0"
-        style={{ background: '#313338' }}>
-        <div className="max-w-4xl mx-auto">
+        style={{ background: 'var(--bg-page)' }}>
+        <div className="max-w-3xl mx-auto">
           <div
             className="rounded-2xl overflow-hidden"
             style={{
-              background: '#3F4147',
+              background: '#2A2B30',
               border: '1px solid #4F5159',
               boxShadow: 'var(--shadow-input)',
             }}
@@ -120,7 +120,7 @@ export default function InputBar({ onSend, isLoading, conversationId, onItemsAdd
             </div>
           </div>
           <p className="text-center text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-            Press <kbd className="px-1 py-0.5 rounded font-mono text-[10px]" style={{ background: '#3F4147', color: 'var(--text-secondary)' }}>Enter</kbd> to send · <kbd className="px-1 py-0.5 rounded font-mono text-[10px]" style={{ background: '#3F4147', color: 'var(--text-secondary)' }}>Shift+Enter</kbd> for new line
+            Press <kbd className="px-1 py-0.5 rounded font-mono text-[10px]" style={{ background: '#2A2B30', color: 'var(--text-secondary)' }}>Enter</kbd> to send · <kbd className="px-1 py-0.5 rounded font-mono text-[10px]" style={{ background: '#2A2B30', color: 'var(--text-secondary)' }}>Shift+Enter</kbd> for new line
           </p>
         </div>
       </div>

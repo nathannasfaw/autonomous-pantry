@@ -123,7 +123,7 @@ export default function PreferencesPanel({ preferences, onUpdate }) {
               onClick={() => onUpdate({ preferred_organic: !preferences.preferred_organic })}
               className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm transition-all"
               style={{
-                background: preferences.preferred_organic ? 'rgba(0,97,160,0.15)' : '#3F4147',
+                background: preferences.preferred_organic ? 'rgba(0,97,160,0.15)' : '#2A2B30',
                 border: `1px solid ${preferences.preferred_organic ? '#0061A0' : '#4F5159'}`,
                 color: 'var(--text-primary)',
               }}
@@ -209,7 +209,7 @@ export default function PreferencesPanel({ preferences, onUpdate }) {
                     onClick={() => onUpdate({ skill_level: value })}
                     className="text-left p-3 rounded-lg transition-all"
                     style={{
-                      background: preferences.skill_level === value ? 'rgba(0,97,160,0.15)' : '#3F4147',
+                      background: preferences.skill_level === value ? 'rgba(0,97,160,0.15)' : '#2A2B30',
                       border: `1px solid ${preferences.skill_level === value ? '#0061A0' : '#4F5159'}`,
                     }}
                   >
@@ -262,7 +262,7 @@ export default function PreferencesPanel({ preferences, onUpdate }) {
               placeholder="e.g. anchovies, cilantro..."
               className="flex-1 text-sm px-3.5 py-2.5 rounded-lg outline-none"
               style={{
-                background: '#3F4147',
+                background: '#2A2B30',
                 color: 'var(--text-primary)',
                 border: '1px solid #4F5159',
               }}

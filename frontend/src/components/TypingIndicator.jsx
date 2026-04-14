@@ -1,12 +1,12 @@
-import chefLogo from '../assets/logo.png'
+import ClaudeLogo from './ClaudeLogo'
 
 export default function TypingIndicator() {
   return (
     <div className="flex items-start gap-3">
-      <img src={chefLogo} alt="Chef" className="w-8 h-8 rounded-xl flex-shrink-0 object-cover" />
+      <ClaudeLogo size={32} className="flex-shrink-0" />
       <div
         className="flex items-center gap-1.5 px-4 py-3 rounded-2xl rounded-tl-sm"
-        style={{ background: '#36393F', border: '1px solid #3F4147' }}
+        style={{ background: '#1E1F23', border: '1px solid #2A2B30' }}
       >
         {[0, 1, 2].map(i => (
           <div

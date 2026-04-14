@@ -34,7 +34,7 @@ export default function RecipeCard({ recipe }) {
 
   return (
     <div className="card-entrance rounded-2xl overflow-hidden w-full"
-         style={{ boxShadow: 'var(--shadow-card)', border: '1px solid #3F4147' }}>
+         style={{ boxShadow: 'var(--shadow-card)', border: '1px solid #2A2B30' }}>
       {hasImage && <RecipeImage name={name} imageUrl={image_url} />}
 
       <div className="px-4 py-3 flex items-center gap-2" style={{ background: 'var(--card-recipe-header)' }}>

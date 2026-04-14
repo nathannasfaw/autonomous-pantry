@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import RecipeCard from './RecipeCard'
 import CartCard from './CartCard'
-import chefLogo from '../assets/logo.png'
+import ClaudeLogo from './ClaudeLogo'
 
 const CheckIcon = ({ size = 14, className = '' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -21,18 +21,16 @@ function AgentAvatar() {
   }, [])
 
   return (
-    <img
-      src={chefLogo}
-      alt="Chef"
-      className={`w-8 h-8 rounded-xl flex-shrink-0 object-cover ${ping ? 'avatar-ping' : ''}`}
-    />
+    <div className={`flex-shrink-0 ${ping ? 'avatar-ping' : ''}`} style={{ borderRadius: 12 }}>
+      <ClaudeLogo size={32} />
+    </div>
   )
 }
 
 function OrderConfirmationCard({ orderDetails }) {
   return (
     <div className="card-entrance success-pulse rounded-2xl overflow-hidden w-full max-w-sm"
-         style={{ boxShadow: 'var(--shadow-card)', border: '1px solid #3F4147' }}>
+         style={{ boxShadow: 'var(--shadow-card)', border: '1px solid #2A2B30' }}>
       <div className="px-4 py-3 flex items-center gap-2" style={{ background: 'var(--card-success-header)' }}>
         <CheckIcon size={15} className="text-white" />
         <div>
@@ -80,7 +78,7 @@ function TextBubble({ text }) {
             <h3 className="font-semibold text-sm mt-2 mb-1" style={{ color: '#ffffff' }}>{children}</h3>
           ),
           code: ({ children }) => (
-            <code className="px-1 py-0.5 rounded text-xs font-mono" style={{ background: '#2B2D31', color: '#7EB8DA' }}>{children}</code>
+            <code className="px-1 py-0.5 rounded text-xs font-mono" style={{ background: '#18191C', color: '#7EB8DA' }}>{children}</code>
           ),
         }}
       >

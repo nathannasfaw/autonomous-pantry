@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import CameraModal from './CameraModal'
 
 const UNITS = ['count', 'lbs', 'oz', 'cups', 'tbsp', 'tsp', 'bottle', 'bag', 'can',
                'bunch', 'cloves', 'package', 'jar', 'box', 'loaf', 'head', 'stick', 'piece', 'sheets']
@@ -27,15 +28,24 @@ const SearchIcon = () => (
   </svg>
 )
 
+const CameraIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+    <circle cx="12" cy="13" r="4"/>
+  </svg>
+)
+
 const EMPTY_FORM = { item: '', quantity: '1', unit: 'count' }
 
-export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate }) {
+export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate, conversationId, onItemsScanned }) {
   const [search, setSearch]     = useState('')
   const [form, setForm]         = useState(EMPTY_FORM)
   const [addOpen, setAddOpen]   = useState(false)
   const [adding, setAdding]     = useState(false)
-  const [editKey, setEditKey]   = useState(null)   // item name being inline-edited
+  const [editKey, setEditKey]   = useState(null)
   const [editQty, setEditQty]   = useState('')
+  const [cameraOpen, setCameraOpen] = useState(false)
 
   const filtered = items.filter(i =>
     i.item.toLowerCase().includes(search.toLowerCase())
@@ -80,13 +90,24 @@ export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate 
               {items.length} item{items.length !== 1 ? 's' : ''} · used by the AI for recipe recommendations
             </p>
           </div>
-          <button
-            onClick={() => setAddOpen(o => !o)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:brightness-110"
-            style={{ background: 'linear-gradient(135deg,#0061A0,#0D5E9D)', color: '#fff' }}
-          >
-            <PlusIcon /> Add item
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCameraOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+              style={{ background: '#2A2B30', border: '1px solid #4F5159', color: 'var(--text-secondary)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#353640'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#2A2B30'; }}
+            >
+              <CameraIcon /> Scan Pantry
+            </button>
+            <button
+              onClick={() => setAddOpen(o => !o)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:brightness-110"
+              style={{ background: 'linear-gradient(135deg,#0061A0,#0D5E9D)', color: '#fff' }}
+            >
+              <PlusIcon /> Add item
+            </button>
+          </div>
         </div>
 
         {/* search */}
@@ -101,7 +122,7 @@ export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate 
             placeholder="Search pantry…"
             className="w-full pl-9 pr-4 py-2 rounded-xl text-sm outline-none"
             style={{
-              background: '#3F4147',
+              background: '#2A2B30',
               border: '1px solid #4F5159',
               color: 'var(--text-primary)',
             }}
@@ -111,7 +132,7 @@ export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate 
 
       {/* ── add form ────────────────────────────────────────────────────────── */}
       {addOpen && (
-        <div className="px-6 py-4" style={{ background: '#36393F', borderBottom: '1px solid var(--sidebar-border)' }}>
+        <div className="px-6 py-4" style={{ background: '#1E1F23', borderBottom: '1px solid var(--sidebar-border)' }}>
           <p className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>
             NEW ITEM
           </p>
@@ -122,7 +143,7 @@ export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate 
               onKeyDown={e => e.key === 'Enter' && handleAdd()}
               placeholder="Item name"
               className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
-              style={{ background: '#3F4147', border: '1px solid #4F5159', color: 'var(--text-primary)' }}
+              style={{ background: '#2A2B30', border: '1px solid #4F5159', color: 'var(--text-primary)' }}
               autoFocus
             />
             <input
@@ -132,13 +153,13 @@ export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate 
               value={form.quantity}
               onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
               className="w-20 px-3 py-2 rounded-lg text-sm outline-none text-center"
-              style={{ background: '#3F4147', border: '1px solid #4F5159', color: 'var(--text-primary)' }}
+              style={{ background: '#2A2B30', border: '1px solid #4F5159', color: 'var(--text-primary)' }}
             />
             <select
               value={form.unit}
               onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
               className="px-2 py-2 rounded-lg text-sm outline-none"
-              style={{ background: '#3F4147', border: '1px solid #4F5159', color: 'var(--text-secondary)' }}
+              style={{ background: '#2A2B30', border: '1px solid #4F5159', color: 'var(--text-secondary)' }}
             >
               {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
             </select>
@@ -173,7 +194,7 @@ export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate 
               <div
                 key={item.item}
                 className="flex items-center gap-3 px-4 py-3 rounded-xl group"
-                style={{ background: '#36393F', border: '1px solid transparent' }}
+                style={{ background: '#1E1F23', border: '1px solid transparent' }}
                 onMouseEnter={e => e.currentTarget.style.borderColor = '#4F5159'}
                 onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
               >
@@ -236,6 +257,14 @@ export default function PantryPanel({ items, loading, onAdd, onDelete, onUpdate 
           </div>
         )}
       </div>
+
+      {cameraOpen && (
+        <CameraModal
+          conversationId={conversationId}
+          onClose={() => setCameraOpen(false)}
+          onItemsAdded={onItemsScanned}
+        />
+      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useChat } from './hooks/useChat'
 import { usePantry } from './hooks/usePantry'
 import ChatWindow from './components/ChatWindow'
@@ -7,7 +7,6 @@ import PantryPanel from './components/PantryPanel'
 import SettingsPanel from './components/SettingsPanel'
 import LoginModal from './components/LoginModal'
 import { ThemeProvider } from './context/ThemeContext'
-import chefLogo from './assets/logo.png'
 
 const PlusIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -42,10 +41,73 @@ const SlidersIcon = () => (
   </svg>
 )
 
+const CHAT_HISTORY_KEY = 'kitchensync-chat-history'
+
+function loadChatHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || '[]')
+  } catch { return [] }
+}
+
+function saveChatHistory(history) {
+  localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(history))
+}
+
+const TrashSmallIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6"/>
+    <path d="M19 6l-1 14H6L5 6"/>
+    <path d="M10 11v6M14 11v6"/>
+    <path d="M9 6V4h6v2"/>
+  </svg>
+)
+
+const ClockIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+  </svg>
+)
+
 export default function App() {
   const { messages, isLoading, sendMessage, conversationId, preferences, updatePreferences } = useChat()
   const { items: pantryItems, loading: pantryLoading, fetchPantry, addItem, deleteItem, updateItem } = usePantry(conversationId)
   const [activeTab, setActiveTab] = useState('chat')
+  const [chatHistory, setChatHistory] = useState(loadChatHistory)
+
+  // Save current chat to history when it has messages and a new conversation starts
+  const saveCurrentChat = useCallback(() => {
+    if (messages.length > 0 && conversationId) {
+      const firstUserMsg = messages.find(m => m.role === 'user')
+      const title = firstUserMsg?.text?.slice(0, 50) || 'New chat'
+      const entry = {
+        id: conversationId,
+        title,
+        timestamp: Date.now(),
+        messageCount: messages.length,
+      }
+      setChatHistory(prev => {
+        const filtered = prev.filter(h => h.id !== conversationId)
+        const updated = [entry, ...filtered].slice(0, 20)
+        saveChatHistory(updated)
+        return updated
+      })
+    }
+  }, [messages, conversationId])
+
+  // Save chat history when messages change
+  useEffect(() => {
+    if (messages.length > 0) saveCurrentChat()
+  }, [messages.length])
+
+  const deleteChat = useCallback((id) => {
+    setChatHistory(prev => {
+      const updated = prev.filter(h => h.id !== id)
+      saveChatHistory(updated)
+      return updated
+    })
+  }, [])
 
   // Called when camera scan confirms items:
   // 1. Switch to pantry tab to show the update
@@ -61,7 +123,7 @@ export default function App() {
       onClick={() => setActiveTab(tab)}
       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors"
       style={{
-        background: activeTab === tab ? '#3F4147' : 'transparent',
+        background: activeTab === tab ? '#2A2B30' : 'transparent',
         color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-secondary)',
       }}
     >
@@ -86,17 +148,17 @@ export default function App() {
         style={{ background: 'var(--bg-sidebar)', borderRight: '1px solid var(--sidebar-border)' }}
       >
         {/* Brand */}
-        <div className="px-4 pb-3 mb-1 flex items-center gap-2.5"
+        <div className="px-4 pb-3 mb-1 flex items-center gap-2.5 header-fade-in"
           style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
-          <span className="font-bold text-xl leading-tight tracking-tight">
-            <span style={{ color: '#5B8FCC' }}>Kitchen</span><span style={{ color: '#4A9A9A' }}>Sync</span>
+          <span className="text-xl leading-tight tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+            <span style={{ color: '#FFFFFF', fontWeight: 400 }}>Kitchen</span><span style={{ color: '#0061A0', fontWeight: 700 }}>Sync</span><span style={{ color: '#FFFFFF', fontWeight: 400 }}>.</span>
           </span>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-2 pt-2 space-y-0.5">
+        <nav className="px-2 pt-2 space-y-0.5">
           <button
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left hover:bg-[#3F4147]"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left hover:bg-[#2A2B30]"
             style={{ color: 'var(--text-secondary)' }}
             onClick={() => { setActiveTab('chat'); sendMessage && window.location.reload() }}
           >
@@ -106,6 +168,44 @@ export default function App() {
           {navItem('pantry', BoxIcon, 'Pantry', pantryItems.length)}
           {navItem('preferences', SlidersIcon, 'Preferences')}
         </nav>
+
+        {/* Chat History */}
+        <div className="flex-1 px-2 pt-3 overflow-y-auto" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
+          <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
+            <ClockIcon />
+            <span className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>History</span>
+          </div>
+          {chatHistory.length === 0 ? (
+            <p className="px-3 text-xs" style={{ color: 'var(--text-muted)' }}>No conversations yet</p>
+          ) : (
+            chatHistory.map((entry) => (
+              <div
+                key={entry.id}
+                className="group flex items-center gap-1 px-3 py-2 rounded-lg text-sm cursor-default"
+                style={{
+                  color: entry.id === conversationId ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  background: entry.id === conversationId ? '#2A2B30' : 'transparent',
+                }}
+                title={entry.title}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="truncate text-sm">{entry.title}</div>
+                  <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    {new Date(entry.timestamp).toLocaleDateString()}
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); deleteChat(entry.id) }}
+                  className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 hover:bg-red-500/20"
+                  style={{ color: '#F87171' }}
+                  title="Delete chat"
+                >
+                  <TrashSmallIcon />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
 
         {/* Footer */}
         <div className="px-4 pt-3" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
@@ -135,6 +235,8 @@ export default function App() {
             onAdd={addItem}
             onDelete={deleteItem}
             onUpdate={updateItem}
+            conversationId={conversationId}
+            onItemsScanned={fetchPantry}
           />
         )}
         {activeTab === 'preferences' && (

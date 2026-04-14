@@ -469,7 +469,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
                   value={selectedDevice}
                   onChange={event => setSelectedDevice(event.target.value)}
                   className="text-xs rounded-lg px-2 py-1 outline-none"
-                  style={{ background: '#3F4147', color: 'var(--text-secondary)', border: '1px solid #4F5159' }}
+                  style={{ background: '#2A2B30', color: 'var(--text-secondary)', border: '1px solid #4F5159' }}
                 >
                   {devices.map((device, index) => (
                     <option key={device.deviceId} value={device.deviceId}>
@@ -480,7 +480,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
               )}
               <button
                 onClick={closeModal}
-                className="p-1 rounded-lg hover:bg-[#3F4147] transition-colors"
+                className="p-1 rounded-lg hover:bg-[#2A2B30] transition-colors"
                 style={{ color: 'var(--text-secondary)' }}
               >
                 <XIcon />
@@ -526,7 +526,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
                     <button
                       onClick={resumeScanning}
                       className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
-                      style={{ background: '#3F4147', color: 'var(--text-primary)' }}
+                      style={{ background: '#2A2B30', color: 'var(--text-primary)' }}
                     >
                       <CameraIcon /> Resume scanning
                     </button>
@@ -556,7 +556,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
               <button
                 onClick={goToReview}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold flex-shrink-0"
-                style={{ background: '#3F4147', color: 'var(--text-primary)' }}
+                style={{ background: '#2A2B30', color: 'var(--text-primary)' }}
               >
                 <StopIcon /> Done scanning
               </button>
@@ -570,7 +570,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
         </div>
 
         <div className="flex flex-col flex-1 min-w-0">
-          <div className="px-5 py-3 flex items-center gap-2.5" style={{ borderBottom: '1px solid #3F4147' }}>
+          <div className="px-5 py-3 flex items-center gap-2.5" style={{ borderBottom: '1px solid #2A2B30' }}>
             <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
               {phase === 'review' ? 'Reviewed items' : 'Tracked items'}
             </span>
@@ -606,7 +606,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
                   onClick={() => phase === 'review' && toggleKey(item.key)}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
                   style={{
-                    background: selectedKeys.has(item.key) ? 'rgba(0,212,255,0.08)' : '#3F4147',
+                    background: selectedKeys.has(item.key) ? 'rgba(0,212,255,0.08)' : '#2A2B30',
                     border: `1px solid ${selectedKeys.has(item.key) ? 'rgba(0,212,255,0.35)' : 'transparent'}`,
                     cursor: phase === 'review' ? 'pointer' : 'default',
                   }}
@@ -670,7 +670,7 @@ export default function CameraModal({ conversationId, onClose, onItemsAdded }) {
           </div>
 
           {phase === 'review' && (
-            <div className="px-4 py-3" style={{ borderTop: '1px solid #3F4147' }}>
+            <div className="px-4 py-3" style={{ borderTop: '1px solid #2A2B30' }}>
               <button
                 onClick={confirmItems}
                 disabled={selectedKeys.size === 0 || isFinalizing}

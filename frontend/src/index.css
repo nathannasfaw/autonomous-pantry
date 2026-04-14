@@ -2,14 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  font-size: 110%;
+}
+
 :root {
-  --bg-sidebar: #2B2D31;
-  --bg-page: #313338;
-  --bg-darkest: #1E1F22;
-  --bg-card: #36393F;
-  --bg-input: #3F4147;
-  --bg-popover: #2B2D31;
-  --sidebar-border: #3F4147;
+  --bg-sidebar: #18191C;
+  --bg-page: #111214;
+  --bg-darkest: #0D0E10;
+  --bg-card: #1E1F23;
+  --bg-input: #2A2B30;
+  --bg-popover: #18191C;
+  --sidebar-border: #2A2B30;
   --text-primary: #DCDDDE;
   --text-secondary: #96989D;
   --text-muted: #72767D;
@@ -17,13 +21,13 @@
   --icon-btn-hover: rgba(255,255,255,0.12);
   --modal-overlay: rgba(0,0,0,0.6);
   --modal-bg: #2B2D31;
-  --modal-border: #3F4147;
+  --modal-border: #2A2B30;
   --input-border: #4F5159;
   --input-focus-border: #5B8FCC;
 
   --user-bubble-bg: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
-  --agent-bubble-bg: #36393F;
-  --agent-bubble-border: #3F4147;
+  --agent-bubble-bg: #1E1F23;
+  --agent-bubble-border: #2A2B30;
 
   --card-recipe-header: linear-gradient(135deg, #0061A0 0%, #0D5E9D 100%);
   --card-cart-header: linear-gradient(135deg, #0D5E9D 0%, #074a7a 100%);
@@ -125,3 +129,10 @@ body {
 .success-pulse { animation: successPulse 1.5s ease-out; }
 .avatar-ping   { animation: avatarPing 0.6s ease-out; }
 .button-pop    { animation: buttonPop 0.18s ease-out; }
+
+/* Header fade-in from bottom */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.header-fade-in { animation: fadeInUp 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
